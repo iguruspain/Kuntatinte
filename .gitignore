@@ -1,0 +1,33 @@
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test / cache
+.pytest_cache/
+
+# Editors / OS
+.vscode/
+*.swp
+*~
+
+# Mac
+.DS_Store
+
+# Local settings
+local_settings.py
+
+# Logs
+*.log
