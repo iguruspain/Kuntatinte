@@ -5,8 +5,6 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-
-
 FORMAT_COLORS_OUTPUT: Dict[str, Any] = {
     "Fastfetch": {
     "fastfetchAccent": {
@@ -161,21 +159,25 @@ def run_autogen(test_mode: bool = True, palette_mode: Optional[str] = None) -> s
     try:
         # Example generated payload used for UI testing. Real implementation
         # will compute values based on rules above and detected schemes.
-        payload = {
-            "status": "ok",
-            "mode": "test" if test_mode else "prod",
-            "palette_mode": palette_mode,
-            "generated": {
-                "Fastfetch": {
-                    "fastfetchAccent": {"color": "#3daee9", "alpha": ""}
-                },
-                "Starship": {
-                    "selectedAccent": {"color": "#3daee9", "alpha": ""},
-                    "selectedAccentText": {"color": "#ffffff", "alpha": ""}
+        if test_mode:
+            payload = {
+                "status": "ok",
+                "mode": "test" if test_mode else "prod",
+                "palette_mode": palette_mode,
+                "generated": {
+                    "Fastfetch": {
+                        "fastfetchAccent": {"color": "#3daee9", "alpha": ""}
+                    },
+                    "Starship": {
+                        "selectedAccent": {"color": "#3daee9", "alpha": ""},
+                        "selectedAccentText": {"color": "#ffffff", "alpha": ""}
+                    }
                 }
             }
-        }
-        return json.dumps(payload)
+            return json.dumps(payload)
+        else:
+            # Full implementation would go here
+            return json.dumps({"status": "error", "message": "Not implemented"})
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
 

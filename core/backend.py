@@ -5,7 +5,6 @@ QObject backend that exposes application logic to QML for color palette
 extraction and application theming.
 """
 
-import configparser
 import json
 import subprocess
 import threading
@@ -48,6 +47,7 @@ from integrations.kuntatinte_colors import (
     read_color,
     write_color,
     get_color_set,
+    get_color_set_from_scheme,
     get_all_colors,
     apply_palette_to_scheme,
     notify_color_change,
@@ -155,20 +155,17 @@ class PaletteBackend(QObject):
     # Application Availability Checks
     # =========================================================================
     
-    @pyqtSlot(result=bool)
+    @pyqtSlot(result='bool')
     def isFastfetchInstalled(self) -> bool:
         """Check if fastfetch is installed."""
         return is_fastfetch_installed()
     
-    @pyqtSlot(result=bool)
+    @pyqtSlot(result='bool')
     def isStarshipInstalled(self) -> bool:
         """Check if starship is installed."""
         return is_starship_installed()
     
-    @pyqtSlot(result=bool)
-    def isUlauncherInstalled(self) -> bool:
-        """Check if ulauncher is installed."""
-        return is_ulauncher_installed()
+    
     
     @pyqtSlot(result='QVariantList')
     def getAvailableSettings(self) -> list[str]:
@@ -183,7 +180,7 @@ class PaletteBackend(QObject):
         available.append("Kuntatinte Color Scheme")
         return available
     
-    @pyqtSlot(str, result=int)
+    @pyqtSlot(str, result='int')
     def getPanelWidth(self, setting_name: str) -> int:
         """Get panel width for a specific setting.
         
@@ -195,7 +192,7 @@ class PaletteBackend(QObject):
         """
         return config.get_panel_width(setting_name)
     
-    @pyqtSlot(result=int)
+    @pyqtSlot(result='int')
     def getMinHeight(self) -> int:
         """Get minimum window height from config."""
         return config.get("ui", "min_height", 480)
@@ -460,7 +457,7 @@ class PaletteBackend(QObject):
         except Exception as e:
             return json.dumps({"status": "error", "message": str(e)})
     
-    @pyqtSlot(result=bool)
+    @pyqtSlot(result='bool')
     def isMaterialYouAvailable(self) -> bool:
         """Check if Material You color extraction is available."""
         return is_material_you_available()
@@ -521,7 +518,7 @@ class PaletteBackend(QObject):
         config.set_custom_palette(colors)
         print(f"Custom palette saved: {len(colors)} colors")
 
-    @pyqtSlot(str, result=bool)
+    @pyqtSlot(str, result='bool')
     def saveAutogenDump(self, json_str: str) -> bool:
         """Save autogen JSON dump to a temp file for inspection.
 
@@ -873,7 +870,7 @@ class PaletteBackend(QObject):
     # Ulauncher Methods
     # =========================================================================
 
-    @pyqtSlot(result=bool)
+    @pyqtSlot(result='bool')
     def isUlauncherInstalled(self) -> bool:
         """Check if Ulauncher is installed.
         
@@ -1019,12 +1016,12 @@ class PaletteBackend(QObject):
         """Read a specific color from the current scheme."""
         return read_color(color_set, key)
 
-    @pyqtSlot(str, str, str, result=bool)
+    @pyqtSlot(str, str, str, result='bool')
     def writeKdeColor(self, color_set: str, key: str, color: str) -> bool:
         """Write a specific color to kdeglobals."""
         return write_color(color_set, key, color)
 
-    @pyqtSlot('QVariantList', str, result=bool)
+    @pyqtSlot('QVariantList', str, result='bool')
     def applyPaletteToKde(self, palette: list, accent: str) -> bool:
         """Apply the extracted palette to KDE color scheme."""
         success = apply_palette_to_scheme(palette, accent if accent else None)
@@ -1032,7 +1029,7 @@ class PaletteBackend(QObject):
             notify_color_change()
         return success
 
-    @pyqtSlot(result=bool)
+    @pyqtSlot(result='bool')
     def notifyKdeColorChange(self) -> bool:
         """Notify KDE about color scheme changes."""
         return notify_color_change()
@@ -1042,7 +1039,7 @@ class PaletteBackend(QObject):
         """Get list of available KDE color schemes."""
         return get_color_schemes_list()
 
-    @pyqtSlot(str, result=bool)
+    @pyqtSlot(str, result='bool')
     def applyColorScheme(self, scheme_name: str) -> bool:
         """Apply a KDE color scheme by name."""
         return apply_color_scheme(scheme_name)
@@ -1081,7 +1078,7 @@ class PaletteBackend(QObject):
                 result[section][key] = {"color": color, "opacity": opacity}
         return result
 
-    @pyqtSlot(str, bool, 'QVariant', result=bool)
+    @pyqtSlot(str, bool, 'QVariant', result='bool')
     def saveKdeColorScheme(self, scheme_name: str, is_dark: bool, colors_data: dict) -> bool:
         """Save colors as a new KDE color scheme with backup."""
         return save_color_scheme_from_data(scheme_name, is_dark, colors_data)

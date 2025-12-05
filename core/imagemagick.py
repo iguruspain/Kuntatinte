@@ -10,7 +10,7 @@ import json
 import os
 import re
 import subprocess
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Any, cast
 
 from core.color_utils import (
     hex_to_rgb,
@@ -20,6 +20,7 @@ from core.color_utils import (
     is_dark_color,
     calculate_hue_distance,
 )
+from core.color_utils import HSL
 from core.file_utils import (
     ensure_directory_exists,
     file_exists,
@@ -238,10 +239,10 @@ def extract_dominant_colors(image_path: str, num_colors: int) -> List[str]:
 # =============================================================================
 
 # Module-level cache for HSL conversions
-_hsl_cache: Dict[str, Dict[str, float]] = {}
+_hsl_cache: Dict[str, HSL] = {}
 
 
-def get_color_hsl(hex_color: str) -> Dict[str, float]:
+def get_color_hsl(hex_color: str) -> HSL:
     """Get HSL values for a hex color with caching.
     
     Args:
@@ -319,7 +320,7 @@ def has_low_color_diversity(colors: List[str]) -> bool:
 def find_background_color(
     colors: List[str],
     light_mode: bool
-) -> Dict[str, any]:
+) -> Dict[str, Any]:
     """Find the best background color from extracted colors.
     
     Args:
@@ -383,7 +384,7 @@ def find_foreground_color(
     light_mode: bool,
     used_indices: set,
     bg_lightness: float
-) -> Dict[str, any]:
+) -> Dict[str, Any]:
     """Find the best foreground color with sufficient contrast.
     
     Args:
@@ -435,7 +436,7 @@ def find_foreground_color(
 # Color Matching and Adjustment
 # =============================================================================
 
-def calculate_color_score(hsl: Dict[str, float], target_hue: float) -> float:
+def calculate_color_score(hsl: HSL, target_hue: float) -> float:
     """Calculate how well a color matches a target ANSI hue.
     
     Args:
@@ -488,7 +489,7 @@ def find_best_color_match(
     return best_index
 
 
-def generate_bright_version(hex_color: str) -> str:
+def generate_bright_version(hex_color: Optional[str]) -> str:
     """Generate a brighter version of a color for ANSI bright colors.
     
     Args:
@@ -497,6 +498,8 @@ def generate_bright_version(hex_color: str) -> str:
     Returns:
         Brighter hex color
     """
+    if not hex_color:
+        return '#000000'
     hsl = get_color_hsl(hex_color)
     new_l = min(100, hsl['l'] + BRIGHT_COLOR_LIGHTNESS_BOOST)
     new_s = min(100, hsl['s'] * BRIGHT_COLOR_SATURATION_BOOST)
@@ -662,7 +665,7 @@ def generate_monochrome_palette(
     )
 
     for i in range(1, 7):
-        hsl = get_color_hsl(palette[i])
+        hsl = get_color_hsl(cast(str, palette[i]))
         adjustment = -10 if light_mode else 10
         newL = max(0, min(100, hsl['l'] + adjustment))
         palette[i + 8] = hsl_to_hex(base_hue, MONOCHROME_SATURATION, newL)
@@ -743,6 +746,8 @@ def adjust_color_for_dark_background(
         f"Adjusting color {color_info['index']} for dark background: "
         f"{color_info['lightness']:.1f}% → {adjusted:.1f}%"
     )
+    if not palette[color_info['index']]:
+        palette[color_info['index']] = '#000000'
     palette[color_info['index']] = adjust_color_lightness(
         palette[color_info['index']], adjusted
     )
@@ -772,6 +777,8 @@ def adjust_color_for_light_background(
         f"Adjusting color {color_info['index']} for light background: "
         f"{color_info['lightness']:.1f}% → {adjusted:.1f}%"
     )
+    if not palette[color_info['index']]:
+        palette[color_info['index']] = '#000000'
     palette[color_info['index']] = adjust_color_lightness(
         palette[color_info['index']], adjusted
     )
@@ -812,6 +819,8 @@ def adjust_outlier_color(
         f"Adjusting {typ} outlier color {outlier['index']}: "
         f"{outlier['lightness']:.1f}% → {adjusted:.1f}%"
     )
+    if not palette[outlier['index']]:
+        palette[outlier['index']] = '#000000'
     palette[outlier['index']] = adjust_color_lightness(
         palette[outlier['index']], adjusted
     )
@@ -821,7 +830,7 @@ def adjust_outlier_color(
         )
 
 
-def normalize_brightness(palette: List[str]) -> List[str]:
+def normalize_brightness(palette: List[Optional[str]]) -> List[str]:
     """Normalize palette brightness for consistency and contrast.
     
     Args:
@@ -830,7 +839,10 @@ def normalize_brightness(palette: List[str]) -> List[str]:
     Returns:
         Normalized palette
     """
-    bg_hsl = get_color_hsl(palette[0])
+    # Ensure no None values before analysis and work with concrete str list
+    pal_strs: List[str] = [p if p is not None else '#000000' for p in palette]
+
+    bg_hsl = get_color_hsl(pal_strs[0])
     bg_lightness = bg_hsl['l']
     
     if bg_lightness < MIN_BACKGROUND_LIGHTNESS_DARK:
@@ -859,9 +871,9 @@ def normalize_brightness(palette: List[str]) -> List[str]:
     ansi_colors = [
         {
             'index': i,
-            'lightness': get_color_hsl(palette[i])['l'],
-            'hue': get_color_hsl(palette[i])['h'],
-            'saturation': get_color_hsl(palette[i])['s']
+            'lightness': get_color_hsl(pal_strs[i])['l'],
+            'hue': get_color_hsl(pal_strs[i])['h'],
+            'saturation': get_color_hsl(pal_strs[i])['s']
         }
         for i in indices
     ]
@@ -871,31 +883,31 @@ def normalize_brightness(palette: List[str]) -> List[str]:
 
     if is_very_dark:
         for c in ansi_colors:
-            adjust_color_for_dark_background(palette, c)
-        return palette
+            adjust_color_for_dark_background(pal_strs, c)
+        return pal_strs
 
     if is_very_light:
         for c in ansi_colors:
-            adjust_color_for_light_background(palette, c)
-        return palette
+            adjust_color_for_light_background(pal_strs, c)
+        return pal_strs
 
     outliers = [
         c for c in ansi_colors
         if abs(c['lightness'] - avg_lightness) > OUTLIER_LIGHTNESS_THRESHOLD
     ]
     for out in outliers:
-        adjust_outlier_color(palette, out, avg_lightness, is_bright_theme)
+        adjust_outlier_color(pal_strs, out, avg_lightness, is_bright_theme)
 
-    color8_hsl = get_color_hsl(palette[8])
+    color8_hsl = get_color_hsl(pal_strs[8])
     if is_very_dark and color8_hsl['l'] < MIN_LIGHTNESS_ON_DARK_BG:
         adjusted = min(MIN_LIGHTNESS_ON_DARK_BG, bg_lightness + 15)
         print(
             f"Normalizing color8 (bright black) from "
             f"{color8_hsl['l']}% to {adjusted}%"
         )
-        palette[8] = hsl_to_hex(color8_hsl['h'], color8_hsl['s'], adjusted)
+        pal_strs[8] = hsl_to_hex(color8_hsl['h'], color8_hsl['s'], adjusted)
 
-    color15_hsl = get_color_hsl(palette[15])
+    color15_hsl = get_color_hsl(pal_strs[15])
     color15_contrast = abs(color15_hsl['l'] - bg_lightness)
     if color15_contrast < MIN_FOREGROUND_CONTRAST:
         target = (
@@ -907,9 +919,9 @@ def normalize_brightness(palette: List[str]) -> List[str]:
             f"Normalizing color15 (bright white) from "
             f"{color15_hsl['l']}% to {target}% for better contrast"
         )
-        palette[15] = hsl_to_hex(color15_hsl['h'], color15_hsl['s'], target)
+        pal_strs[15] = hsl_to_hex(color15_hsl['h'], color15_hsl['s'], target)
 
-    return palette
+    return pal_strs
 
 
 # =============================================================================

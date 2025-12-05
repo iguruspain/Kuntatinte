@@ -5,7 +5,7 @@ Extract seed colors from images using Material You's color quantization algorith
 Uses the materialyoucolor library for extracting visually pleasing accent colors.
 """
 
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING, Any, Iterable, cast
 import logging
 
 # Try to import materialyoucolor - it may not be installed
@@ -142,7 +142,9 @@ def extract_source_colors_from_image(image_path: str, max_colors: int = 7) -> Li
         
         # Get pixel data
         image_data = img.getdata()
-        pixel_array = list(image_data)
+        # `Image.getdata()` returns an ImagingCore that isn't typed as Iterable in stubs;
+        # cast to Iterable[Any] so the type checker accepts conversion to list.
+        pixel_array = list(cast(Iterable[Any], image_data))
         
         # Quantize colors using Material You's algorithm
         # Returns a dict of {argb: count}
