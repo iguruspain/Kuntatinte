@@ -149,7 +149,6 @@ DEFAULTS: dict[str, dict[str, Any]] = {
             "fastfetch": 280,
             "starship": 280,
             "ulauncher": 380,
-            "editor": 520,
             "kuntatinte_color_scheme": 520,
         },
     },
