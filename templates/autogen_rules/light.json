@@ -1,0 +1,135 @@
+{
+  "Fastfetch": {
+    "fastfetchAccent": {
+      "extract_method": "variable",
+      "variable_key": "PrimaryColor"
+    }
+  },
+  "Starship": {
+    "selectedAccent": {
+      "extract_method": "variable",
+      "variable_key": "PrimaryColor"
+    },
+    "selectedAccentText": {
+      "extract_method": "better_contrast",
+      "base_color": "TobeDefined",
+      "group_colors": ["TobeDefined", "TobeDefined"]
+    },
+    "selectedDirFg": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Selection",
+      "scheme_key": "DecorationFocus"
+    },
+    "selectedDirBg": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:View",
+      "scheme_key": "DecorationHover"
+    },
+    "selectedDirText": {
+      "extract_method": "better_contrast",
+      "base_color": "TobeDefined",
+      "group_colors": ["TobeDefined", "TobeDefined"]
+    },
+    "selectedGitFg": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "ForegroundInactive"
+    },
+    "selectedGitBg": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "BackgroundAlternate"
+    },
+    "selectedGitText": {
+      "extract_method": "better_contrast",
+      "base_color": "TobeDefined",
+      "group_colors": ["TobeDefined", "TobeDefined"]
+    },
+    "selectedOtherFg": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:View",
+      "scheme_key": "DecorationHover"
+    },
+    "selectedOtherBg": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:View",
+      "scheme_key": "DecorationFocus"
+    },
+    "selectedOtherText": {
+      "extract_method": "better_contrast",
+      "base_color": "TobeDefined",
+      "group_colors": ["TobeDefined", "TobeDefined"]
+    }
+  },
+  "Ulauncher": {
+    "ulauncherBgColor": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "BackgroundNormal"
+    },
+    "ulauncherBorderColor": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "BackgroundAlternate"
+    },
+    "ulauncherPrefsBackground": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "ForegroundInactive"
+    },
+    "ulauncherInputColor": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "ForegroundNormal"
+    },
+    "ulauncherSelectedBgColor": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Selection",
+      "scheme_key": "BackgroundNormal"
+    },
+    "ulauncherSelectedFgColor": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Selection",
+      "scheme_key": "ForegroundNormal"
+    },
+    "ulauncherItemName": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "ForegroundNormal"
+    },
+    "ulauncherItemText": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "ForegroundInactive"
+    },
+    "ulauncherItemBoxSelected": {
+      "extract_method": "variable",
+      "variable_key": "PrimaryColor"
+    },
+    "ulauncherItemNameSelected": {
+      "extract_method": "darker",
+      "group_colors": ["TobeDefined", "TobeDefined"]
+    },
+    "ulauncherItemTextSelected": {
+      "extract_method": "darker",
+      "group_colors": ["TobeDefined", "TobeDefined"]
+    },
+    "ulauncherShortcutColor": {
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Selection",
+      "scheme_key": "DecorationFocus"
+    },
+    "ulauncherShortcutColorSel": {
+      "extract_method": "darker",
+      "group_colors": ["TobeDefined", "TobeDefined"]
+    },
+    "ulauncherWhenSelected": {
+      "extract_method": "darker",
+      "group_colors": ["TobeDefined", "TobeDefined"]
+    },
+    "ulauncherWhenNotSelected": {
+      "extract_method": "darker",
+      "group_colors": ["TobeDefined", "TobeDefined"]
+    }
+  }
+}
