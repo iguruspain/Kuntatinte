@@ -51,25 +51,39 @@ Rectangle {
                 anchors.margins: Kirigami.Units.smallSpacing
                 anchors.leftMargin: Kirigami.Units.largeSpacing
                 anchors.rightMargin: Kirigami.Units.largeSpacing
-                spacing: Kirigami.Units.smallSpacing
                 
                 Kirigami.Heading {
                     text: "Settings"
                     level: 2
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
                 }
                 
                 Controls.ComboBox {
                     id: settingsComboBox
-                    Layout.fillWidth: true
                     model: settingsPanel.availableSettings
                     currentIndex: settingsPanel.currentSettingsIndex
                     onCurrentIndexChanged: settingsPanel.currentSettingsIndex = currentIndex
+                    Layout.alignment: Qt.AlignVCenter
                 }
             }
         }
         
         // Subtle horizontal separator (not touching edges)
-        Settings.SubtleSeparator {}
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 1
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.leftMargin: 20
+                anchors.rightMargin: 20
+                anchors.verticalCenter: parent.verticalCenter
+                height: 1
+                color: Kirigami.Theme.textColor
+                opacity: 0.15
+            }
+        }
         
         // Settings content area with StackLayout
         StackLayout {

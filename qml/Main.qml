@@ -42,6 +42,7 @@ Kirigami.ApplicationWindow {
     property var baseSourceColors: []  // Original source colors before variants
     property var sourceColors: []  // Material You source colors (with variants applied)
     property string selectedImagePath: ""
+    property string wallpaperSource: "user"  // "user" or "system"
     
     // Material You source colors as individual properties (avoids QVariantList binding issues)
     property int sourceColorsCount: 0
@@ -547,6 +548,9 @@ Kirigami.ApplicationWindow {
             // Left panel: Wallpapers sidebar
             WallpapersPanel {
                 id: wallpapersPanel
+                Layout.alignment: Qt.AlignTop
+                Layout.topMargin: 20
+                Layout.bottomMargin: 20
             }
             
             // Left vertical separator
@@ -563,6 +567,9 @@ Kirigami.ApplicationWindow {
             // Central panel: Preview and palette (fills remaining space)
             CentralPanel {
                 id: centralPanel
+                Layout.alignment: Qt.AlignTop
+                Layout.topMargin: 20
+                Layout.bottomMargin: 20
             }
             
             // Right vertical separator
@@ -576,20 +583,16 @@ Kirigami.ApplicationWindow {
                 opacity: 0.15
             }
             
-            // Right panel: Settings (with bottom margin via clip)
-            Item {
+            // Right panel: Settings
+            SettingsPanel {
+                id: settingsPanel
                 visible: root.rightPanelVisible
-                Layout.fillHeight: true
+                Layout.alignment: Qt.AlignTop
+                Layout.topMargin: 20
+                Layout.bottomMargin: 20
                 Layout.preferredWidth: visible ? root.currentSettingsPanelWidth : 0
                 Layout.minimumWidth: visible ? root.currentSettingsPanelWidth : 0
                 Layout.maximumWidth: visible ? root.currentSettingsPanelWidth : 0
-                clip: true
-                
-                SettingsPanel {
-                    id: settingsPanel
-                    anchors.fill: parent
-                    anchors.bottomMargin: 8
-                }
             }
         }
     }

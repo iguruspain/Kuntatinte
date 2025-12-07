@@ -51,11 +51,23 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: Kirigami.Units.smallSpacing
                 anchors.leftMargin: Kirigami.Units.largeSpacing
+                anchors.rightMargin: Kirigami.Units.largeSpacing
                 
                 Kirigami.Heading {
                     text: "Wallpapers"
                     level: 2
+                    Layout.alignment: Qt.AlignVCenter
+                }
+                
+                Item {
                     Layout.fillWidth: true
+                }
+                
+                Controls.ComboBox {
+                    model: ["Custom", "Default"]
+                    currentIndex: root.wallpaperSource === "user" ? 0 : 1
+                    onCurrentTextChanged: root.wallpaperSource = currentText === "Custom" ? "user" : "system"
+                    Layout.alignment: Qt.AlignVCenter
                 }
                 
                 Controls.ToolButton {
@@ -63,6 +75,10 @@ Rectangle {
                     onClicked: backend.openFolderDialog()
                     Controls.ToolTip.text: "Browse Folder"
                     Controls.ToolTip.visible: hovered
+                    opacity: root.wallpaperSource === "user" ? 1 : 0
+                    enabled: root.wallpaperSource === "user"
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.leftMargin: -Kirigami.Units.largeSpacing
                 }
             }
         }
@@ -101,7 +117,7 @@ Rectangle {
                 cellHeight: cellSize * 0.75
                 clip: true
                 
-                model: backend ? backend.imageList : []
+                model: backend ? (root.wallpaperSource === "user" ? backend.imageList : backend.systemImageList) : []
                 
                 delegate: Item {
                     width: thumbnailGrid.cellWidth

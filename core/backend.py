@@ -90,6 +90,7 @@ class PaletteBackend(QObject):
     sourceColorsExtracted = pyqtSignal(str)  # JSON string to avoid marshalling issues
     extractionError = pyqtSignal(str)
     imageListChanged = pyqtSignal()
+    systemImageListChanged = pyqtSignal()
     
     # Properties exposed to QML
     @pyqtProperty(bool, constant=True)
@@ -108,6 +109,7 @@ class PaletteBackend(QObject):
         """
         super().__init__(parent)
         self._image_list: list[str] = []
+        self._system_image_list: list[str] = []
         self._current_folder: Optional[Path] = None
         self._screenshot_counter = 0
         # Material You cache
@@ -123,6 +125,9 @@ class PaletteBackend(QObject):
         # Load default wallpapers folder from config
         if config.wallpapers_folder and config.wallpapers_folder.exists():
             self.loadFolder(str(config.wallpapers_folder))
+        
+        # Load system wallpapers
+        self.loadSystemWallpapers()
     
     # =========================================================================
     # Debug / Screenshot Capture
@@ -213,6 +218,11 @@ class PaletteBackend(QObject):
     
     imageList = pyqtProperty(list, _get_image_list, notify=imageListChanged)
     
+    def _get_system_image_list(self) -> list[str]:
+        return self._system_image_list
+    
+    systemImageList = pyqtProperty(list, _get_system_image_list, notify=systemImageListChanged)
+    
     @pyqtSlot()
     def openFolderDialog(self) -> None:
         """Open native folder selection dialog."""
@@ -252,6 +262,23 @@ class PaletteBackend(QObject):
             config.set("paths", "wallpapers_folder", folder_path)
         
         self.imageListChanged.emit()
+    
+    @pyqtSlot()
+    def loadSystemWallpapers(self) -> None:
+        """Load system wallpapers from /usr/share/wallpapers."""
+        system_dir = Path("/usr/share/wallpapers")
+        self._system_image_list = []
+        
+        if system_dir.exists() and system_dir.is_dir():
+            for p in system_dir.rglob('*'):
+                if (p.suffix.lower() in IMAGE_EXTENSIONS and p.is_file() and 
+                    "/previews/" not in str(p) and 
+                    "screenshot" not in p.name.lower() and 
+                    "preview" not in p.name.lower()):
+                    self._system_image_list.append(str(p))
+            self._system_image_list.sort()
+        
+        self.systemImageListChanged.emit()
     
     # =========================================================================
     # Color Extraction Methods

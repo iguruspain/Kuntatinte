@@ -50,16 +50,20 @@ ColumnLayout {
         RowLayout {
             anchors.fill: parent
             anchors.margins: Kirigami.Units.smallSpacing
+            anchors.leftMargin: Kirigami.Units.largeSpacing
+            anchors.rightMargin: Kirigami.Units.largeSpacing
             
             Controls.ToolButton {
                 icon.name: root.leftPanelVisible ? "sidebar-collapse-left" : "sidebar-expand-left"
                 onClicked: root.leftPanelVisible = !root.leftPanelVisible
                 Controls.ToolTip.text: root.leftPanelVisible ? "Hide Wallpapers" : "Show Wallpapers"
                 Controls.ToolTip.visible: hovered
+                Layout.alignment: Qt.AlignVCenter
             }
             
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
                 spacing: 0
                 
                 Kirigami.Heading {
@@ -90,6 +94,7 @@ ColumnLayout {
                 onClicked: root.rightPanelVisible = !root.rightPanelVisible
                 Controls.ToolTip.text: root.rightPanelVisible ? "Hide Settings" : "Show Settings"
                 Controls.ToolTip.visible: hovered
+                Layout.alignment: Qt.AlignVCenter
             }
         }
     }
@@ -368,11 +373,20 @@ ColumnLayout {
             }
             
             // === RECOMMENDED ACCENTS SECTION ===
-            Controls.Label {
-                text: root.extractionMethod === "Material You" ? "Recommended Accents (select accent to change palette)" : "Recommended Accents"
-                font.bold: true
+            RowLayout {
+                Layout.fillWidth: true
                 Layout.topMargin: Kirigami.Units.smallSpacing
                 visible: root.extractedAccent !== "" || (root.sourceColors && root.sourceColors.length > 0)
+                Controls.Label {
+                    text: "Recommended Accents"
+                    font.bold: true
+                }
+                Controls.Label {
+                    text: "(select accent to change palette)"
+                    font.italic: true
+                    opacity: 0.7
+                    visible: root.extractionMethod === "Material You"
+                }
             }
             
             RowLayout {
