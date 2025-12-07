@@ -46,26 +46,23 @@ Rectangle {
             Layout.preferredHeight: 56
             color: "transparent"
             
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: Kirigami.Units.smallSpacing
-                anchors.leftMargin: Kirigami.Units.largeSpacing
-                anchors.rightMargin: Kirigami.Units.largeSpacing
-                
-                Kirigami.Heading {
-                    text: "Settings"
-                    level: 2
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
-                }
-                
-                Controls.ComboBox {
-                    id: settingsComboBox
-                    model: settingsPanel.availableSettings
-                    currentIndex: settingsPanel.currentSettingsIndex
-                    onCurrentIndexChanged: settingsPanel.currentSettingsIndex = currentIndex
-                    Layout.alignment: Qt.AlignVCenter
-                }
+            Kirigami.Heading {
+                text: "Settings"
+                level: 2
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                width: 60
+            }
+            
+            Controls.ComboBox {
+                id: settingsComboBox
+                anchors.left: parent.left
+                anchors.leftMargin: 70
+                anchors.verticalCenter: parent.verticalCenter
+                width: 200
+                model: settingsPanel.availableSettings
+                currentIndex: settingsPanel.currentSettingsIndex
+                onCurrentIndexChanged: settingsPanel.currentSettingsIndex = currentIndex
             }
         }
         
