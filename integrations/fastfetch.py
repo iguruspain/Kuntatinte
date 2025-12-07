@@ -12,11 +12,15 @@ Workflow:
 """
 
 import json
+import logging
 import re
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional, Tuple
+
+
+logger = logging.getLogger(__name__)
 
 from core.config_manager import config as app_config
 
@@ -118,7 +122,7 @@ def get_logo_path_from_config() -> Optional[Path]:
         
         return None
     except (json.JSONDecodeError, Exception) as e:
-        print(f"Error parsing fastfetch config: {e}")
+        logger.error(f"Error parsing fastfetch config: {e}")
         return None
 
 
@@ -329,7 +333,7 @@ def generate_tinted_preview(source_path: str, accent_color: str) -> Optional[str
         
         return preview_path
     except Exception as e:
-        print(f"Error generating preview: {e}")
+        logger.error(f"Error generating preview: {e}")
         return None
 
 

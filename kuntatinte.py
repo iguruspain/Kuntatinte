@@ -7,7 +7,15 @@ using QML with Kirigami for a native KDE Plasma experience.
 """
 
 import sys
+import logging
 from pathlib import Path
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Configure Qt environment BEFORE importing PyQt6
 from core.qt_environment import (
@@ -18,20 +26,20 @@ from core.qt_environment import (
 
 setup_qt_environment()
 
-from PyQt6.QtCore import QUrl, qInstallMessageHandler, QtMsgType
+from PyQt6.QtCore import QUrl, QtMsgType
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtWidgets import QApplication
 
 from core.backend import PaletteBackend
 
 
-def qt_message_handler(mode: QtMsgType, context, message: str) -> None:
+def qt_message_handler(_mode: QtMsgType, _context, message: str) -> None:
     """Filter out noisy Qt warnings."""
     # Suppress libpng ICC profile warnings
     if "libpng warning" in message:
         return
-    # Print other messages normally
-    print(message)
+    # Log other messages
+    logger.warning(message)
 
 
 def main() -> None:
@@ -61,8 +69,8 @@ def main() -> None:
     engine.load(QUrl.fromLocalFile(str(qml_file)))
     
     if not engine.rootObjects():
-        print("Error: Could not load QML interface")
-        print(f"File: {qml_file}")
+        logger.error("Could not load QML interface")
+        logger.error(f"File: {qml_file}")
         sys.exit(1)
     
     sys.exit(app.exec())

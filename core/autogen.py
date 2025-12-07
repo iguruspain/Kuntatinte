@@ -1,9 +1,16 @@
-# module for automatic generation of color configuration files for integrated applications based on Kuntatinte color schemes
+"""
+Automatic generation of color configuration files for integrated applications
+based on Kuntatinte color schemes.
+"""
 import configparser
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+
+logger = logging.getLogger(__name__)
 
 FORMAT_COLORS_OUTPUT: Dict[str, Any] = {
     "Fastfetch": {
@@ -123,11 +130,21 @@ FORMAT_COLORS_OUTPUT: Dict[str, Any] = {
 }
 
 def get_scheme_color(scheme_path: str, color_section: str, color_key: str) -> Optional[str]:
+    """Extract a color value from a KDE color scheme file.
+    
+    Args:
+        scheme_path: Path to the color scheme file
+        color_section: Section name in the config file (e.g., 'Colors:Window')
+        color_key: Key name within the section (e.g., 'BackgroundNormal')
+    
+    Returns:
+        Hex color string in lowercase format, or None if not found/invalid
+    """
 
-    config = configparser.ConfigParser()
-    config.read(scheme_path)
+    scheme_config = configparser.ConfigParser()
+    scheme_config.read(scheme_path)
     try:
-        color_value = config.get(color_section, color_key)
+        color_value = scheme_config.get(color_section, color_key)
         match = re.match(r"#?([0-9A-Fa-f]{6})", color_value)
         if match:
             return f"#{match.group(1).lower()}"
@@ -136,12 +153,48 @@ def get_scheme_color(scheme_path: str, color_section: str, color_key: str) -> Op
     return None
 
 def darker_color(colors: Dict[str, str]) -> Optional[str]:
+    """Select the darkest color from a dictionary of colors.
+    
+    Args:
+        colors: Dictionary mapping color names to hex color strings
+    
+    Returns:
+        Hex color string of the darkest color, or None if colors is empty
+        
+    Note:
+        This is currently a placeholder implementation that returns the first color.
+    """
     # Placeholder implementation
     return next(iter(colors.values()), None)
-def better_contrast_color(base_color: str, colors: Dict[str, str]) -> Optional[str]:
+
+def better_contrast_color(_base_color: str, colors: Dict[str, str]) -> Optional[str]:
+    """Select a color with better contrast against a base color.
+    
+    Args:
+        _base_color: Base color for contrast calculation (currently unused)
+        colors: Dictionary mapping color names to hex color strings
+    
+    Returns:
+        Hex color string with better contrast, or None if colors is empty
+        
+    Note:
+        This is currently a placeholder implementation that returns the first color.
+    """
     # Placeholder implementation
     return next(iter(colors.values()), None)
+
 def lighter_color(colors: Dict[str, str]) -> Optional[str]:
+    """Select the lightest color from a dictionary of colors.
+    
+    Args:
+        colors: Dictionary mapping color names to hex color strings
+    
+    Returns:
+        Hex color string of the lightest color, or None if colors is empty
+        
+    Note:
+        This is currently a placeholder implementation that returns the first color.
+    """
     # Placeholder implementation
     return next(iter(colors.values()), None)
 
@@ -197,5 +250,5 @@ def _load_rules_from_templates(mode: str) -> Dict[str, Any]:
             with open(rules_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except Exception as e:
-        print(f"[autogen] failed to load rules from templates: {e}")
+        logger.error(f"Failed to load rules from templates: {e}")
     return {}

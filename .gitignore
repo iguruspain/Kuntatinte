@@ -34,3 +34,9 @@ local_settings.py
 
 # TODO
 TODO.md
+
+# tests
+tests/
+
+# benchmarks
+benchmark_performance.py

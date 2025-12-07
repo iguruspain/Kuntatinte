@@ -1,3 +1,5 @@
 PyQt6>=6.0
 Pillow>=9.0
 materialyoucolor>=2.0.9
+pywal>=3.3.0
+pytest>=7.0

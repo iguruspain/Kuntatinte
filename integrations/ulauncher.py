@@ -7,6 +7,7 @@ KDE color scheme and accent colors.
 """
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -14,13 +15,14 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+
+logger = logging.getLogger(__name__)
+
 from core.config_manager import config as app_config
 from core.color_utils import (
-    hex_to_rgb,
     rgb_to_hex,
     hex_to_rgba,
     normalize_color,
-    get_best_contrast,
 )
 
 
@@ -137,9 +139,9 @@ def gen_ulauncher_config(palette: Dict[str, str], opacities: Optional[Dict[str, 
     if not css_path.exists():
         raise FileNotFoundError(f"Template CSS not found: {css_path}")
     
-    with open(manifest_path, 'r') as f:
+    with open(manifest_path, 'r', encoding='utf-8') as f:
         manifest = f.read()
-    with open(css_path, 'r') as f:
+    with open(css_path, 'r', encoding='utf-8') as f:
         css = f.read()
     
     # Replace placeholders in manifest
@@ -250,9 +252,9 @@ def apply_ulauncher_theme(colors: Dict[str, str], opacities: Optional[Dict[str, 
                 shutil.copy2(src, dst)
         
         # Write generated files
-        with open(output_dir / 'manifest.json', 'w') as f:
+        with open(output_dir / 'manifest.json', 'w', encoding='utf-8') as f:
             f.write(manifest)
-        with open(output_dir / 'theme.css', 'w') as f:
+        with open(output_dir / 'theme.css', 'w', encoding='utf-8') as f:
             f.write(css)
         
         # Update Ulauncher settings to use our theme and restart
@@ -275,7 +277,7 @@ def _update_ulauncher_settings() -> None:
         return
     
     try:
-        with open(settings_path, 'r') as f:
+        with open(settings_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
         if '"theme-name"' in content:
@@ -284,10 +286,10 @@ def _update_ulauncher_settings() -> None:
                 '"theme-name": "kuntatinte"',
                 content
             )
-            with open(settings_path, 'w') as f:
+            with open(settings_path, 'w', encoding='utf-8') as f:
                 f.write(content)
     except Exception as e:
-        print(f"Warning: Could not update Ulauncher settings: {e}")
+        logger.warning(f"Could not update Ulauncher settings: {e}")
 
 
 def restore_ulauncher_backup() -> Tuple[bool, str]:
@@ -349,7 +351,7 @@ def get_current_colors() -> Dict[str, Any]:
     
     try:
         # Read colors from CSS
-        with open(css_path, 'r') as f:
+        with open(css_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
         # Parse @define-color statements
@@ -386,7 +388,7 @@ def get_current_colors() -> Dict[str, Any]:
         
         return colors
     except Exception as e:
-        print(f"Error loading Ulauncher colors: {e}")
+        logger.error(f"Error loading Ulauncher colors: {e}")
         return {}
 
 

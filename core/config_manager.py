@@ -12,6 +12,10 @@ import shutil
 import tomllib
 from pathlib import Path
 from typing import Any, Optional
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -97,20 +101,20 @@ def _init_user_config() -> bool:
         bundled_config = PROJECT_DIR / "config.toml"
         if bundled_config.exists():
             shutil.copy2(bundled_config, config_file)
-            print(f"Copied config from project: {config_file}")
+            logger.info(f"Copied config from project: {config_file}")
         else:
             # Generate from defaults
             config_content = _generate_default_config()
-            with open(config_file, 'w') as f:
+            with open(config_file, 'w', encoding='utf-8') as f:
                 f.write(config_content)
-            print(f"Generated default config: {config_file}")
+            logger.info(f"Generated default config: {config_file}")
         initialized = True
     
     # Copy templates directory if not present
     bundled_templates = PROJECT_DIR / "templates"
     if not templates_dir.exists() and bundled_templates.exists():
         shutil.copytree(bundled_templates, templates_dir)
-        print(f"Copied templates to: {templates_dir}")
+        logger.info(f"Copied templates to: {templates_dir}")
         initialized = True
     
     return initialized
@@ -130,11 +134,6 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     },
     "cache": {
         "cache_dir": "kuntatinte",
-    },
-    "extraction": {
-        "default_method": "ImageMagick",
-        "custom_palette": [],
-        "custom_accent": "",
     },
     "ui": {
         "debug_ui": False,
@@ -179,7 +178,7 @@ class Config:
                 with open(self._config_path, "rb") as f:
                     self._config = tomllib.load(f)
             except Exception as e:
-                print(f"Warning: Could not load config: {e}")
+                logger.warning(f"Could not load config: {e}")
                 self._config = {}
         else:
             self._config = {}
@@ -194,7 +193,7 @@ class Config:
             return
         
         try:
-            with open(self._config_path, "r") as f:
+            with open(self._config_path, "r", encoding='utf-8') as f:
                 content = f.read()
             
             # Update each value in the file
@@ -205,10 +204,10 @@ class Config:
                         continue
                     content = self._update_value_in_content(content, section, key, value)
             
-            with open(self._config_path, "w") as f:
+            with open(self._config_path, "w", encoding='utf-8') as f:
                 f.write(content)
         except Exception as e:
-            print(f"Warning: Could not save config: {e}")
+            logger.warning(f"Could not save config: {e}")
     
     def _update_value_in_content(self, content: str, section: str, key: str, value: Any) -> str:
         """Update a single value in the TOML content."""
@@ -270,7 +269,7 @@ class Config:
             lines.append("\n")
         
         self._config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self._config_path, "w") as f:
+        with open(self._config_path, "w", encoding='utf-8') as f:
             f.writelines(lines)
     
     def set(self, section: str, key: str, value: Any, save: bool = True) -> None:
@@ -397,29 +396,6 @@ class Config:
     # =========================================================================
     # Extraction Properties
     # =========================================================================
-    
-    @property
-    def default_extraction_method(self) -> str:
-        """Default color extraction method."""
-        return self.get("extraction", "default_method", "ImageMagick")
-    
-    @property
-    def custom_palette(self) -> list[str]:
-        """Custom palette colors."""
-        return self.get("extraction", "custom_palette", [])
-    
-    def set_custom_palette(self, colors: list[str]) -> None:
-        """Set custom palette colors."""
-        self.set("extraction", "custom_palette", colors)
-    
-    @property
-    def custom_accent(self) -> str:
-        """Custom accent color."""
-        return self.get("extraction", "custom_accent", "")
-    
-    def set_custom_accent(self, color: str) -> None:
-        """Set custom accent color."""
-        self.set("extraction", "custom_accent", color)
     
     # =========================================================================
     # UI Properties

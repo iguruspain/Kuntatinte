@@ -5,12 +5,16 @@ Starship Prompt Configuration.
 Applies color customization to the Starship prompt configuration file.
 """
 
+import logging
 import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, Optional, Tuple
+
+
+logger = logging.getLogger(__name__)
 
 from core.config_manager import config
 
@@ -87,7 +91,7 @@ def gen_starship_config(palette: Dict[str, str], template_file: Path) -> str:
     if not template_path.exists():
         raise FileNotFoundError(f"Template file not found: {template_path}")
 
-    with open(template_path, 'r') as f:
+    with open(template_path, 'r', encoding='utf-8') as f:
         template = f.read()
 
     # Find the palette section
@@ -154,7 +158,7 @@ def load_starship_colors() -> Dict[str, str]:
     if not config_path.exists():
         return result
     
-    with open(config_path, 'r') as f:
+    with open(config_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
     # Find the palette section
@@ -214,7 +218,7 @@ def apply_starship_colors(colors: Dict[str, str]) -> Tuple[bool, str]:
         backup_path = output_path.with_suffix('.toml.bak')
         shutil.copy2(output_path, backup_path)
     
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         f.write(starship_config)
     
     refresh_starship()
@@ -251,7 +255,7 @@ def main() -> None:
     output_path = config.starship_config
 
     if not template_path.exists():
-        print(f"Could not find template file: {template_path}")
+        logger.error(f"Could not find template file: {template_path}")
         return
 
     palette = build_starship_palette()
@@ -259,7 +263,7 @@ def main() -> None:
     try:
         starship_config = gen_starship_config(palette, template_path)
     except FileNotFoundError as e:
-        print(str(e))
+        logger.error(str(e))
         return
 
     # Ensure output directory exists
@@ -270,11 +274,11 @@ def main() -> None:
         backup_path = output_path.with_suffix('.toml.bak')
         shutil.copy2(output_path, backup_path)
 
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         f.write(starship_config)
 
     refresh_starship()
-    print(f"Starship configuration generated at: {output_path}")
+    logger.info(f"Starship configuration generated at: {output_path}")
 
 
 if __name__ == "__main__":

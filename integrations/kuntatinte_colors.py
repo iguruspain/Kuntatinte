@@ -1,23 +1,25 @@
 """integrations.kuntatinte_colors
 
-Un módulo unificado que combina la funcionalidad de los antiguos
-`kde_colors.py` y `kde_colors_v2.py`. Este archivo reemplaza a los dos
-anteriores y es el único módulo que debe usar la aplicación.
+A unified module that combines the functionality of the old
+`kde_colors.py` and `kde_colors_v2.py`. This file replaces both
+previous ones and is the only module that the application should use.
 """
 
 import configparser
+import logging
 import subprocess
 import shutil
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from datetime import datetime
 
-# Utilidades de color del núcleo
+
+logger = logging.getLogger(__name__)
+
+# Core color utilities
 from core.color_utils import (
-    hex_to_rgb, rgb_to_hex, hex_to_hsl, hsl_to_hex,
-    blend_colors, get_luminance, get_contrast_ratio,
-    adjust_color_lightness, adjust_color_saturation
+    hex_to_rgb, hex_to_hsl, hsl_to_hex,
+    blend_colors, get_contrast_ratio,
 )
 
 
@@ -59,7 +61,7 @@ def parse_scheme_file(scheme_name: str) -> Dict[str, Dict[str, Tuple[str, float]
 
         return result
     except Exception as e:
-        print(f"Error parsing scheme file: {e}")
+        logger.error(f"Error parsing scheme file: {e}")
         return {}
 
 
@@ -97,7 +99,7 @@ def get_current_scheme_name() -> str:
         )
         return result.stdout.strip() or "Unknown"
     except Exception as e:
-        print(f"Error getting current scheme: {e}")
+        logger.error(f"Error getting current scheme: {e}")
         return "Unknown"
 
 
@@ -168,7 +170,7 @@ def read_color(color_set: str, key: str) -> str:
         hex_color, _ = parse_kde_color(color_str)
         return hex_color
     except Exception as e:
-        print(f"Error reading color: {e}")
+        logger.error(f"Error reading color: {e}")
         return "#000000"
 
 
@@ -183,7 +185,7 @@ def read_color_with_opacity(color_set: str, key: str) -> tuple[str, float]:
         color_str = result.stdout.strip()
         return parse_kde_color(color_str)
     except Exception as e:
-        print(f"Error reading color: {e}")
+        logger.error(f"Error reading color: {e}")
         return "#000000", 1.0
 
 
@@ -199,7 +201,7 @@ def write_color(color_set: str, key: str, color: str, opacity: float = 1.0, noti
         result = subprocess.run(cmd, capture_output=True, text=True)
         return result.returncode == 0
     except Exception as e:
-        print(f"Error writing color: {e}")
+        logger.error(f"Error writing color: {e}")
         return False
 
 
@@ -228,11 +230,14 @@ def get_all_colors() -> dict:
 
 def apply_palette_to_scheme(palette: list, accent: str | None = None) -> bool:
     if len(palette) < 8:
-        print("Palette must have at least 8 colors")
+        logger.error("Palette must have at least 8 colors")
         return False
 
-    sorted_palette = sorted(palette, key=lambda c: hex_to_hsl(c)['l'])
-    avg_luminance = sum(hex_to_hsl(c)['l'] for c in palette) / len(palette)
+    # Cache HSL conversions to avoid repeated calculations
+    hsl_cache = {color: hex_to_hsl(color) for color in palette}
+    
+    sorted_palette = sorted(palette, key=lambda c: hsl_cache[c]['l'])
+    avg_luminance = sum(hsl_cache[c]['l'] for c in palette) / len(palette)
     is_dark = avg_luminance < 50
 
     if is_dark:
@@ -336,7 +341,7 @@ def notify_color_change():
         )
         return True
     except Exception as e:
-        print(f"Error notifying color change: {e}")
+        logger.error(f"Error notifying color change: {e}")
         return False
 
 
@@ -356,7 +361,7 @@ def read_color_from_scheme(scheme_name: str, color_set: str, key: str) -> str:
         hex_color, _ = parse_kde_color(color_str)
         return hex_color
     except Exception as e:
-        print(f"Error reading color from scheme: {e}")
+        logger.error(f"Error reading color from scheme: {e}")
         return "#000000"
 
 
@@ -390,11 +395,11 @@ def apply_color_scheme(scheme_name: str) -> bool:
         )
         return result.returncode == 0
     except Exception as e:
-        print(f"Error applying color scheme: {e}")
+        logger.error(f"Error applying color scheme: {e}")
         return False
 
 
-def save_color_scheme(scheme_name: str, is_dark: bool) -> bool:
+def save_color_scheme(scheme_name: str, _is_dark: bool) -> bool:
     user_schemes_dir = Path.home() / ".local/share/color-schemes"
     user_schemes_dir.mkdir(parents=True, exist_ok=True)
 
@@ -406,7 +411,7 @@ def save_color_scheme(scheme_name: str, is_dark: bool) -> bool:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = backup_dir / f"{scheme_name}_{timestamp}.colors"
         shutil.copy(scheme_path, backup_path)
-        print(f"Backup created: {backup_path}")
+        logger.info(f"Backup created: {backup_path}")
 
     try:
         config = configparser.ConfigParser()
@@ -448,14 +453,14 @@ def save_color_scheme(scheme_name: str, is_dark: bool) -> bool:
         with open(scheme_path, 'w') as f:
             config.write(f, space_around_delimiters=False)
 
-        print(f"Color scheme saved: {scheme_path}")
+        logger.info(f"Color scheme saved: {scheme_path}")
         return True
     except Exception as e:
-        print(f"Error saving color scheme: {e}")
+        logger.error(f"Error saving color scheme: {e}")
         return False
 
 
-def save_color_scheme_from_data(scheme_name: str, is_dark: bool, colors_data: dict) -> bool:
+def save_color_scheme_from_data(scheme_name: str, _is_dark: bool, colors_data: dict) -> bool:
     user_schemes_dir = Path.home() / ".local/share/color-schemes"
     user_schemes_dir.mkdir(parents=True, exist_ok=True)
 
@@ -467,7 +472,7 @@ def save_color_scheme_from_data(scheme_name: str, is_dark: bool, colors_data: di
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = backup_dir / f"{scheme_name}_{timestamp}.colors"
         shutil.copy(scheme_path, backup_path)
-        print(f"Backup created: {backup_path}")
+        logger.info(f"Backup created: {backup_path}")
 
     try:
         config = configparser.ConfigParser()
@@ -499,10 +504,10 @@ def save_color_scheme_from_data(scheme_name: str, is_dark: bool, colors_data: di
         with open(scheme_path, 'w') as f:
             config.write(f, space_around_delimiters=False)
 
-        print(f"Color scheme saved: {scheme_path}")
+        logger.info(f"Color scheme saved: {scheme_path}")
         return True
     except Exception as e:
-        print(f"Error saving color scheme: {e}")
+        logger.error(f"Error saving color scheme: {e}")
         return False
 
 
@@ -539,10 +544,10 @@ def blend2contrast(
     target_color: str,
     min_contrast: float = 4.5,
     step: float = 0.05,
-    lighter: bool = True
+    _lighter: bool = True
 ) -> str:
     current = color
-    for i in range(100):
+    for _ in range(100):
         contrast = get_contrast_ratio(current, background)
         if contrast >= min_contrast:
             return current
@@ -633,30 +638,73 @@ class KuntatinteSchemeGenerator:
                 }
             }
 
-    def _generate_light_scheme(self) -> str:
-        surface = self.tones_neutral[99]
-        surface_dim = self.tones_neutral[95]
-        surface_container = self.tones_neutral[94]
-        surface_container_high = self.tones_neutral[92]
-        surface_container_highest = self.tones_neutral[90]
-        surface_container_low = self.tones_neutral[96]
-        surface_container_lowest = self.tones_neutral[100]
-        surface_variant = self.tones_neutral_variant[90]
+    def _generate_scheme(self, is_dark: bool) -> str:
+        """Generate a KDE color scheme for light or dark mode.
+        
+        Args:
+            is_dark: True for dark scheme, False for light scheme
+            
+        Returns:
+            KDE color scheme as string
+        """
+        if is_dark:
+            # Dark mode: use low tones for surfaces, high tones for "on" colors
+            surface = self.tones_neutral[10]
+            surface_dim = self.tones_neutral[5]
+            surface_container = self.tones_neutral[12]
+            surface_container_high = self.tones_neutral[17]
+            surface_container_highest = self.tones_neutral[22]
+            surface_container_lowest = self.tones_neutral[5]
+            surface_variant = self.tones_neutral_variant[30]
 
-        on_surface = self.tones_neutral[10]
-        on_surface_variant = self.tones_neutral_variant[30]
-        outline = self.tones_neutral_variant[50]
+            on_surface = self.tones_neutral[90]
+            on_surface_variant = self.tones_neutral_variant[80]
+            outline = self.tones_neutral_variant[60]
 
-        primary = self.tones_primary[40]
-        on_primary = self.tones_primary[100]
-        primary_container = self.tones_primary[90]
+            primary = self.tones_primary[80]
+            on_primary = self.tones_primary[20]
 
-        secondary = self.tones_secondary[40]
-        on_secondary = self.tones_secondary[100]
-        secondary_container = self.tones_secondary[90]
+            secondary = self.tones_secondary[80]
+            on_secondary = self.tones_secondary[20]
+            secondary_container = self.tones_secondary[30]
 
-        inverse_surface = self.tones_neutral[20]
-        inverse_primary = self.tones_primary[80]
+            inverse_surface = self.tones_neutral[90]
+            inverse_primary = self.tones_primary[40]
+
+            extras_mode = 'dark'
+            color_scheme_name = 'KuntatinteDark'
+            inactive_enabled = 'true'
+            active_blend = '252,252,252'
+            inactive_blend = '161,169,177'
+        else:
+            # Light mode: use high tones for surfaces, low tones for "on" colors
+            surface = self.tones_neutral[99]
+            surface_dim = self.tones_neutral[95]
+            surface_container = self.tones_neutral[94]
+            surface_container_high = self.tones_neutral[92]
+            surface_container_highest = self.tones_neutral[90]
+            surface_container_lowest = self.tones_neutral[100]
+            surface_variant = self.tones_neutral_variant[90]
+
+            on_surface = self.tones_neutral[10]
+            on_surface_variant = self.tones_neutral_variant[30]
+            outline = self.tones_neutral_variant[50]
+
+            primary = self.tones_primary[40]
+            on_primary = self.tones_primary[100]
+
+            secondary = self.tones_secondary[40]
+            on_secondary = self.tones_secondary[100]
+            secondary_container = self.tones_secondary[90]
+
+            inverse_surface = self.tones_neutral[20]
+            inverse_primary = self.tones_primary[80]
+
+            extras_mode = 'light'
+            color_scheme_name = 'KuntatinteLight'
+            inactive_enabled = 'false'
+            active_blend = '227,229,231'
+            inactive_blend = '239,240,241'
 
         extras = self.colors
 
@@ -676,7 +724,7 @@ ColorAmount=0.025
 ColorEffect=0
 ContrastAmount=0.1
 ContrastEffect=0
-Enable=false
+Enable={inactive_enabled}
 IntensityAmount=0
 IntensityEffect=0
 
@@ -687,12 +735,12 @@ DecorationFocus={format_rgb(primary)}
 DecorationHover={format_rgb(primary)}
 ForegroundActive={format_rgb(on_surface)}
 ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['light']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['light']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['light']['primary'])}
+ForegroundLink={format_rgb(extras['link'][extras_mode]['primary'])}
+ForegroundNegative={format_rgb(extras['negative'][extras_mode]['primary'])}
+ForegroundNeutral={format_rgb(extras['neutral'][extras_mode]['primary'])}
 ForegroundNormal={format_rgb(on_surface)}
-ForegroundPositive={format_rgb(extras['positive']['light']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['light']['primary'])}
+ForegroundPositive={format_rgb(extras['positive'][extras_mode]['primary'])}
+ForegroundVisited={format_rgb(extras['visited'][extras_mode]['primary'])}
 
 [Colors:Complementary]
 BackgroundAlternate={format_rgb(surface)}
@@ -701,12 +749,12 @@ DecorationFocus={format_rgb(primary)}
 DecorationHover={format_rgb(primary)}
 ForegroundActive={format_rgb(inverse_surface)}
 ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['light']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['light']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['light']['primary'])}
+ForegroundLink={format_rgb(extras['link'][extras_mode]['primary'])}
+ForegroundNegative={format_rgb(extras['negative'][extras_mode]['primary'])}
+ForegroundNeutral={format_rgb(extras['neutral'][extras_mode]['primary'])}
 ForegroundNormal={format_rgb(on_surface_variant)}
-ForegroundPositive={format_rgb(extras['positive']['light']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['light']['primary'])}
+ForegroundPositive={format_rgb(extras['positive'][extras_mode]['primary'])}
+ForegroundVisited={format_rgb(extras['visited'][extras_mode]['primary'])}
 
 [Colors:Header]
 BackgroundAlternate={format_rgb(surface_container)}
@@ -715,12 +763,12 @@ DecorationFocus={format_rgb(primary)}
 DecorationHover={format_rgb(primary)}
 ForegroundActive={format_rgb(inverse_surface)}
 ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['light']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['light']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['light']['primary'])}
+ForegroundLink={format_rgb(extras['link'][extras_mode]['primary'])}
+ForegroundNegative={format_rgb(extras['negative'][extras_mode]['primary'])}
+ForegroundNeutral={format_rgb(extras['neutral'][extras_mode]['primary'])}
 ForegroundNormal={format_rgb(on_surface_variant)}
-ForegroundPositive={format_rgb(extras['positive']['light']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['light']['primary'])}
+ForegroundPositive={format_rgb(extras['positive'][extras_mode]['primary'])}
+ForegroundVisited={format_rgb(extras['visited'][extras_mode]['primary'])}
 
 [Colors:Header][Inactive]
 BackgroundAlternate={format_rgb(surface_container)}
@@ -729,12 +777,12 @@ DecorationFocus={format_rgb(primary)}
 DecorationHover={format_rgb(primary)}
 ForegroundActive={format_rgb(inverse_surface)}
 ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['light']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['light']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['light']['primary'])}
+ForegroundLink={format_rgb(extras['link'][extras_mode]['primary'])}
+ForegroundNegative={format_rgb(extras['negative'][extras_mode]['primary'])}
+ForegroundNeutral={format_rgb(extras['neutral'][extras_mode]['primary'])}
 ForegroundNormal={format_rgb(on_surface_variant)}
-ForegroundPositive={format_rgb(extras['positive']['light']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['light']['primary'])}
+ForegroundPositive={format_rgb(extras['positive'][extras_mode]['primary'])}
+ForegroundVisited={format_rgb(extras['visited'][extras_mode]['primary'])}
 
 [Colors:Selection]
 BackgroundAlternate={format_rgb(primary)}
@@ -743,12 +791,12 @@ DecorationFocus={format_rgb(primary)}
 DecorationHover={format_rgb(secondary)}
 ForegroundActive={format_rgb(on_primary)}
 ForegroundInactive={format_rgb(on_primary)}
-ForegroundLink={format_rgb(extras['link']['light']['onPrimaryFixedVariant'])}
-ForegroundNegative={format_rgb(extras['negative']['light']['onPrimaryFixedVariant'])}
-ForegroundNeutral={format_rgb(extras['neutral']['light']['onPrimaryFixedVariant'])}
+ForegroundLink={format_rgb(extras['link'][extras_mode]['onPrimaryFixedVariant'])}
+ForegroundNegative={format_rgb(extras['negative'][extras_mode]['onPrimaryFixedVariant'])}
+ForegroundNeutral={format_rgb(extras['neutral'][extras_mode]['onPrimaryFixedVariant'])}
 ForegroundNormal={format_rgb(on_primary)}
-ForegroundPositive={format_rgb(extras['positive']['light']['onPrimaryFixedVariant'])}
-ForegroundVisited={format_rgb(extras['visited']['light']['onPrimaryFixedVariant'])}
+ForegroundPositive={format_rgb(extras['positive'][extras_mode]['onPrimaryFixedVariant'])}
+ForegroundVisited={format_rgb(extras['visited'][extras_mode]['onPrimaryFixedVariant'])}
 
 [Colors:Tooltip]
 BackgroundAlternate={format_rgb(surface_variant)}
@@ -757,12 +805,12 @@ DecorationFocus={format_rgb(primary)}
 DecorationHover={format_rgb(primary)}
 ForegroundActive={format_rgb(on_surface)}
 ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['light']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['light']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['light']['primary'])}
+ForegroundLink={format_rgb(extras['link'][extras_mode]['primary'])}
+ForegroundNegative={format_rgb(extras['negative'][extras_mode]['primary'])}
+ForegroundNeutral={format_rgb(extras['neutral'][extras_mode]['primary'])}
 ForegroundNormal={format_rgb(on_surface)}
-ForegroundPositive={format_rgb(extras['positive']['light']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['light']['primary'])}
+ForegroundPositive={format_rgb(extras['positive'][extras_mode]['primary'])}
+ForegroundVisited={format_rgb(extras['visited'][extras_mode]['primary'])}
 
 [Colors:View]
 BackgroundAlternate={format_rgb(surface_container)}
@@ -771,30 +819,30 @@ DecorationFocus={format_rgb(primary)}
 DecorationHover={format_rgb(inverse_primary)}
 ForegroundActive={format_rgb(inverse_surface)}
 ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['light']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['light']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['light']['primary'])}
+ForegroundLink={format_rgb(extras['link'][extras_mode]['primary'])}
+ForegroundNegative={format_rgb(extras['negative'][extras_mode]['primary'])}
+ForegroundNeutral={format_rgb(extras['neutral'][extras_mode]['primary'])}
 ForegroundNormal={format_rgb(on_surface)}
-ForegroundPositive={format_rgb(extras['positive']['light']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['light']['primary'])}
+ForegroundPositive={format_rgb(extras['positive'][extras_mode]['primary'])}
+ForegroundVisited={format_rgb(extras['visited'][extras_mode]['primary'])}
 
 [Colors:Window]
 BackgroundAlternate={format_rgb(surface_variant)}
 BackgroundNormal={format_rgb(surface_container)}
 DecorationFocus={format_rgb(primary)}
 DecorationHover={format_rgb(primary)}
-ForegroundActive={format_rgb(extras['link']['light']['primary'])}
+ForegroundActive={format_rgb(extras['link'][extras_mode]['primary'])}
 ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['light']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['light']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['light']['primary'])}
+ForegroundLink={format_rgb(extras['link'][extras_mode]['primary'])}
+ForegroundNegative={format_rgb(extras['negative'][extras_mode]['primary'])}
+ForegroundNeutral={format_rgb(extras['neutral'][extras_mode]['primary'])}
 ForegroundNormal={format_rgb(on_surface_variant)}
-ForegroundPositive={format_rgb(extras['positive']['light']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['light']['primary'])}
+ForegroundPositive={format_rgb(extras['positive'][extras_mode]['primary'])}
+ForegroundVisited={format_rgb(extras['visited'][extras_mode]['primary'])}
 
 [General]
-ColorScheme=KuntatinteLight
-Name=Kuntatinte Light
+ColorScheme={color_scheme_name}
+Name={color_scheme_name}
 shadeSortColumn=true
 
 [KDE]
@@ -802,190 +850,21 @@ contrast=4
 
 [WM]
 activeBackground={hex2alpha(surface_container_highest, self.toolbar_opacity)}
-activeBlend=227,229,231
+activeBlend={active_blend}
 activeForeground={format_rgb(on_surface)}
 inactiveBackground={hex2alpha(secondary_container, self.toolbar_opacity)}
-inactiveBlend=239,240,241
+inactiveBlend={inactive_blend}
 inactiveForeground={format_rgb(on_surface_variant)}
 """
         return scheme
+
+    def _generate_light_scheme(self) -> str:
+        """Generate light KDE color scheme."""
+        return self._generate_scheme(is_dark=False)
 
     def _generate_dark_scheme(self) -> str:
-        surface = self.tones_neutral[10]
-        surface_dim = self.tones_neutral[5]
-        surface_container = self.tones_neutral[12]
-        surface_container_high = self.tones_neutral[17]
-        surface_container_highest = self.tones_neutral[22]
-        surface_container_low = self.tones_neutral[10]
-        surface_container_lowest = self.tones_neutral[5]
-        surface_variant = self.tones_neutral_variant[30]
-
-        on_surface = self.tones_neutral[90]
-        on_surface_variant = self.tones_neutral_variant[80]
-        outline = self.tones_neutral_variant[60]
-
-        primary = self.tones_primary[80]
-        on_primary = self.tones_primary[20]
-        primary_container = self.tones_primary[30]
-
-        secondary = self.tones_secondary[80]
-        on_secondary = self.tones_secondary[20]
-        secondary_container = self.tones_secondary[30]
-
-        inverse_surface = self.tones_neutral[90]
-        inverse_primary = self.tones_primary[40]
-
-        extras = self.colors
-
-        scheme = f"""[ColorEffects:Disabled]
-Color={format_rgb(surface_container)}
-ColorAmount=0.5
-ColorEffect=3
-ContrastAmount=0
-ContrastEffect=0
-IntensityAmount=0
-IntensityEffect=0
-
-[ColorEffects:Inactive]
-ChangeSelectionColor=true
-Color={format_rgb(surface_container_lowest)}
-ColorAmount=0.025
-ColorEffect=0
-ContrastAmount=0.1
-ContrastEffect=0
-Enable=true
-IntensityAmount=0
-IntensityEffect=0
-
-[Colors:Button]
-BackgroundAlternate={format_rgb(surface_variant)}
-BackgroundNormal={format_rgb(surface_container_high)}
-DecorationFocus={format_rgb(primary)}
-DecorationHover={format_rgb(primary)}
-ForegroundActive={format_rgb(on_surface)}
-ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['dark']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['dark']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['dark']['primary'])}
-ForegroundNormal={format_rgb(on_surface)}
-ForegroundPositive={format_rgb(extras['positive']['dark']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['dark']['primary'])}
-
-[Colors:Complementary]
-BackgroundAlternate={format_rgb(surface)}
-BackgroundNormal={format_rgb(surface_container)}
-DecorationFocus={format_rgb(primary)}
-DecorationHover={format_rgb(primary)}
-ForegroundActive={format_rgb(inverse_surface)}
-ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['dark']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['dark']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['dark']['primary'])}
-ForegroundNormal={format_rgb(on_surface_variant)}
-ForegroundPositive={format_rgb(extras['positive']['dark']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['dark']['primary'])}
-
-[Colors:Header]
-BackgroundAlternate={format_rgb(surface_container)}
-BackgroundNormal={format_rgb(surface_container)}
-DecorationFocus={format_rgb(primary)}
-DecorationHover={format_rgb(primary)}
-ForegroundActive={format_rgb(inverse_surface)}
-ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['dark']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['dark']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['dark']['primary'])}
-ForegroundNormal={format_rgb(on_surface_variant)}
-ForegroundPositive={format_rgb(extras['positive']['dark']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['dark']['primary'])}
-
-[Colors:Header][Inactive]
-BackgroundAlternate={format_rgb(surface_container)}
-BackgroundNormal={format_rgb(surface_container)}
-DecorationFocus={format_rgb(primary)}
-DecorationHover={format_rgb(primary)}
-ForegroundActive={format_rgb(inverse_surface)}
-ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['dark']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['dark']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['dark']['primary'])}
-ForegroundNormal={format_rgb(on_surface_variant)}
-ForegroundPositive={format_rgb(extras['positive']['dark']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['dark']['primary'])}
-
-[Colors:Selection]
-BackgroundAlternate={format_rgb(primary)}
-BackgroundNormal={format_rgb(primary)}
-DecorationFocus={format_rgb(primary)}
-DecorationHover={format_rgb(secondary)}
-ForegroundActive={format_rgb(on_primary)}
-ForegroundInactive={format_rgb(on_primary)}
-ForegroundLink={format_rgb(extras['link']['dark']['onPrimaryFixedVariant'])}
-ForegroundNegative={format_rgb(extras['negative']['dark']['onPrimaryFixedVariant'])}
-ForegroundNeutral={format_rgb(extras['neutral']['dark']['onPrimaryFixedVariant'])}
-ForegroundNormal={format_rgb(on_primary)}
-ForegroundPositive={format_rgb(extras['positive']['dark']['onPrimaryFixedVariant'])}
-ForegroundVisited={format_rgb(extras['visited']['dark']['onPrimaryFixedVariant'])}
-
-[Colors:Tooltip]
-BackgroundAlternate={format_rgb(surface_variant)}
-BackgroundNormal={format_rgb(surface_container)}
-DecorationFocus={format_rgb(primary)}
-DecorationHover={format_rgb(primary)}
-ForegroundActive={format_rgb(on_surface)}
-ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['dark']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['dark']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['dark']['primary'])}
-ForegroundNormal={format_rgb(on_surface)}
-ForegroundPositive={format_rgb(extras['positive']['dark']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['dark']['primary'])}
-
-[Colors:View]
-BackgroundAlternate={format_rgb(surface_container)}
-BackgroundNormal={format_rgb(surface_dim)}
-DecorationFocus={format_rgb(primary)}
-DecorationHover={format_rgb(inverse_primary)}
-ForegroundActive={format_rgb(inverse_surface)}
-ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['dark']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['dark']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['dark']['primary'])}
-ForegroundNormal={format_rgb(on_surface)}
-ForegroundPositive={format_rgb(extras['positive']['dark']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['dark']['primary'])}
-
-[Colors:Window]
-BackgroundAlternate={format_rgb(surface_variant)}
-BackgroundNormal={format_rgb(surface_container)}
-DecorationFocus={format_rgb(primary)}
-DecorationHover={format_rgb(primary)}
-ForegroundActive={format_rgb(extras['link']['dark']['primary'])}
-ForegroundInactive={format_rgb(outline)}
-ForegroundLink={format_rgb(extras['link']['dark']['primary'])}
-ForegroundNegative={format_rgb(extras['negative']['dark']['primary'])}
-ForegroundNeutral={format_rgb(extras['neutral']['dark']['primary'])}
-ForegroundNormal={format_rgb(on_surface_variant)}
-ForegroundPositive={format_rgb(extras['positive']['dark']['primary'])}
-ForegroundVisited={format_rgb(extras['visited']['dark']['primary'])}
-
-[General]
-ColorScheme=KuntatinteDark
-Name=Kuntatinte Dark
-shadeSortColumn=true
-
-[KDE]
-contrast=4
-
-[WM]
-activeBackground={hex2alpha(surface_container_highest, self.toolbar_opacity)}
-activeBlend=252,252,252
-activeForeground={format_rgb(on_surface)}
-inactiveBackground={hex2alpha(secondary_container, self.toolbar_opacity)}
-inactiveBlend=161,169,177
-inactiveForeground={format_rgb(on_surface_variant)}
-"""
-        return scheme
+        """Generate dark KDE color scheme."""
+        return self._generate_scheme(is_dark=True)
 
     def get_light_scheme(self) -> str:
         return self._light_scheme
@@ -1051,7 +930,7 @@ def save_kuntatinte_scheme(scheme_content: str, scheme_name: str) -> Tuple[bool,
         try:
             shutil.copy(scheme_path, backup_path)
         except Exception as e:
-            print(f"Warning: Could not create backup: {e}")
+            logger.warning(f"Could not create backup: {e}")
 
     try:
         with open(scheme_path, 'w', encoding='utf-8') as f:

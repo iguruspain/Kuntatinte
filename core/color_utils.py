@@ -23,12 +23,18 @@ class HSL(TypedDict):
     l: float
 
 
+# Caches for color conversion functions
+_hex_to_rgb_cache: dict[str, Tuple[int, int, int]] = {}
+_hex_to_hsl_cache: dict[str, HSL] = {}
+_CACHE_MAX_SIZE = 500  # Limit cache size to prevent memory issues
+
+
 # =============================================================================
 # Basic Conversions
 # =============================================================================
 
 def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
-    """Convert hex color to RGB tuple.
+    """Convert hex color to RGB tuple with caching.
     
     Args:
         hex_color: Color in #rrggbb or rrggbb format
@@ -39,15 +45,35 @@ def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
     Raises:
         ValueError: If hex string is invalid
     """
-    s = hex_color.lstrip('#')
+    # Normalize hex color format
+    if hex_color.startswith('#'):
+        normalized = hex_color
+    else:
+        normalized = f"#{hex_color}"
+    
+    # Check cache first
+    if normalized in _hex_to_rgb_cache:
+        return _hex_to_rgb_cache[normalized]
+    
+    # Manage cache size
+    if len(_hex_to_rgb_cache) >= _CACHE_MAX_SIZE:
+        # Simple cache eviction: clear half the cache
+        items_to_keep = list(_hex_to_rgb_cache.keys())[_CACHE_MAX_SIZE // 2:]
+        _hex_to_rgb_cache.clear()
+        # Note: This is a simple implementation. A proper LRU cache would be better
+    
+    s = normalized.lstrip('#')
     if len(s) != 6:
         raise ValueError(f"Invalid hex color: {hex_color}")
     
-    return (
+    rgb = (
         int(s[0:2], 16),
         int(s[2:4], 16),
         int(s[4:6], 16)
     )
+    
+    _hex_to_rgb_cache[normalized] = rgb
+    return rgb
 
 
 def rgb_to_hex(r: int, g: int, b: int) -> str:
@@ -142,7 +168,7 @@ def rgb_to_hsl(r: int, g: int, b: int) -> HSL:
 
 
 def hex_to_hsl(hex_color: str) -> HSL:
-    """Convert hex color to HSL dictionary.
+    """Convert hex color to HSL dictionary with caching.
     
     Args:
         hex_color: Color in #rrggbb format
@@ -150,8 +176,34 @@ def hex_to_hsl(hex_color: str) -> HSL:
     Returns:
         HSL dictionary with h (0-360), s (0-100), l (0-100)
     """
-    r, g, b = hex_to_rgb(hex_color)
-    return rgb_to_hsl(r, g, b)
+    # Normalize hex color format
+    if hex_color.startswith('#'):
+        normalized = hex_color
+    else:
+        normalized = f"#{hex_color}"
+    
+    # Check cache first
+    if normalized in _hex_to_hsl_cache:
+        return _hex_to_hsl_cache[normalized]
+    
+    # Manage cache size
+    if len(_hex_to_hsl_cache) >= _CACHE_MAX_SIZE:
+        # Simple cache eviction: clear half the cache
+        items_to_keep = list(_hex_to_hsl_cache.keys())[_CACHE_MAX_SIZE // 2:]
+        _hex_to_hsl_cache.clear()
+        # Note: This is a simple implementation. A proper LRU cache would be better
+    
+    r, g, b = hex_to_rgb(normalized)
+    hsl = rgb_to_hsl(r, g, b)
+    
+    _hex_to_hsl_cache[normalized] = hsl
+    return hsl
+
+
+def clear_color_caches() -> None:
+    """Clear all color conversion caches."""
+    _hex_to_rgb_cache.clear()
+    _hex_to_hsl_cache.clear()
 
 
 def hsl_to_rgb(h: float, s: float, l: float) -> RGB:
@@ -227,6 +279,14 @@ def get_luminance(hex_color: str) -> float:
         Relative luminance 0.0-1.0
     """
     def srgb_to_linear(c: int) -> float:
+        """Convert sRGB component to linear color space.
+        
+        Args:
+            c: Color component value 0-255
+            
+        Returns:
+            Linear color component 0.0-1.0
+        """
         c_norm = c / 255.0
         return c_norm / 12.92 if c_norm <= 0.04045 else ((c_norm + 0.055) / 1.055) ** 2.4
     
@@ -523,113 +583,40 @@ def apply_variant_to_palette(colors: List[str], variant: int) -> List[str]:
     ]
 
 
-def interpolate_palette_variants(
-    colors: List[str], 
-    from_variant: int, 
-    to_variant: int, 
-    progress: float
-) -> List[str]:
-    """Interpolate between two palette variants.
-    
+def generate_palette_from_seed(seed_hex: str, mode: str = "dark", slider_percent: float = 50.0) -> list[str]:
+    """Generate a simple 16-color palette from a single seed color.
+
+    This helper produces 16 hex colors by varying lightness levels
+    and applying a saturation factor influenced by `slider_percent`.
+
     Args:
-        colors: Original palette colors
-        from_variant: Starting variant index
-        to_variant: Target variant index
-        progress: Interpolation progress (0 = from_variant, 1 = to_variant)
-    
+        seed_hex: seed color in #rrggbb
+        mode: "light"|"dark" - influences chosen lightness distribution
+        slider_percent: 0-100 used to adjust saturation intensity
+
     Returns:
-        Interpolated palette
+        List of 16 hex color strings
     """
-    from_palette = apply_variant_to_palette(colors, from_variant)
-    to_palette = apply_variant_to_palette(colors, to_variant)
-    
-    return [
-        blend_colors(from_color, to_color, progress)
-        for from_color, to_color in zip(from_palette, to_palette)
-    ]
+    # Normalize and fall back
+    seed = normalize_color(seed_hex) or "#3daee9"
+    hsl = hex_to_hsl(seed)
 
+    # Saturation multiplier: range [0.6, 1.8]
+    sat_factor = 0.6 + (slider_percent / 100.0) * 1.2
 
-def get_palette_at_slider_position(colors: List[str], slider_value: float) -> List[str]:
-    """Get palette based on slider position (0-100).
-    
-    The slider moves through variants:
-    0-12.5: Content -> Fidelity
-    12.5-25: Fidelity -> Neutral  
-    25-37.5: Neutral -> Monochrome
-    37.5-50: Monochrome -> TonalSpot
-    50-62.5: TonalSpot -> Vibrant
-    62.5-75: Vibrant -> Expressive
-    75-87.5: Expressive -> Rainbow
-    87.5-100: Rainbow -> FruitSalad
-    
-    Args:
-        colors: Original palette colors
-        slider_value: Slider position (0-100)
-    
-    Returns:
-        Transformed palette
-    """
-    # Define variant sequence for slider
-    variant_sequence = [
-        VARIANT_CONTENT,
-        VARIANT_FIDELITY,
-        VARIANT_NEUTRAL,
-        VARIANT_MONOCHROME,
-        VARIANT_TONALSPOT,
-        VARIANT_VIBRANT,
-        VARIANT_EXPRESSIVE,
-        VARIANT_RAINBOW,
-        VARIANT_FRUITSALAD
-    ]
-    
-    num_segments = len(variant_sequence) - 1
-    segment_size = 100.0 / num_segments
-    
-    # Clamp slider value
-    slider_value = max(0, min(100, slider_value))
-    
-    # Find which segment we're in
-    segment_index = int(slider_value / segment_size)
-    if segment_index >= num_segments:
-        segment_index = num_segments - 1
-    
-    # Calculate progress within segment
-    segment_start = segment_index * segment_size
-    progress = (slider_value - segment_start) / segment_size
-    
-    from_variant = variant_sequence[segment_index]
-    to_variant = variant_sequence[segment_index + 1]
-    
-    return interpolate_palette_variants(colors, from_variant, to_variant, progress)
+    # Lightness templates for 16 slots depending on mode
+    if mode == "dark":
+        lightnesses = [18, 24, 30, 36, 42, 50, 58, 70, 20, 28, 34, 40, 46, 54, 62, 82]
+    elif mode == "light":
+        lightnesses = [96, 90, 82, 74, 66, 58, 50, 36, 94, 86, 78, 70, 62, 54, 46, 18]
+    else:  # dark (default)
+        lightnesses = [18, 24, 30, 36, 42, 50, 58, 70, 20, 28, 34, 40, 46, 54, 62, 82]
 
+    palette: list[str] = []
+    for L in lightnesses:
+        new_s = max(0.0, min(100.0, hsl['s'] * sat_factor))
+        color = hsl_to_hex(hsl['h'], new_s, L)
+        palette.append(color)
 
-def get_variant_name_at_slider_position(slider_value: float) -> str:
-    """Get the name of the closest variant at slider position.
-    
-    Args:
-        slider_value: Slider position (0-100)
-    
-    Returns:
-        Name of the closest variant
-    """
-    variant_sequence = [
-        VARIANT_CONTENT,
-        VARIANT_FIDELITY,
-        VARIANT_NEUTRAL,
-        VARIANT_MONOCHROME,
-        VARIANT_TONALSPOT,
-        VARIANT_VIBRANT,
-        VARIANT_EXPRESSIVE,
-        VARIANT_RAINBOW,
-        VARIANT_FRUITSALAD
-    ]
-    
-    num_variants = len(variant_sequence)
-    segment_size = 100.0 / (num_variants - 1)
-    
-    # Find closest variant
-    closest_index = round(slider_value / segment_size)
-    closest_index = max(0, min(num_variants - 1, closest_index))
-    
-    return VARIANT_NAMES[variant_sequence[closest_index]]
+    return palette
 

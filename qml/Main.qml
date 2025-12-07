@@ -38,7 +38,6 @@ Kirigami.ApplicationWindow {
     property var basePaletteColors: []  // Original palette before variant transformations
     property var paletteColors: extractedColors  // Alias for compatibility
     property string accentColor: extractedAccent  // Alias for compatibility
-    property real paletteSliderValue: 4  // Slider position (0-8), 4 = TonalSpot (default)
     property string extractedAccent: ""
     property var baseSourceColors: []  // Original source colors before variants
     property var sourceColors: []  // Material You source colors (with variants applied)
@@ -67,7 +66,19 @@ Kirigami.ApplicationWindow {
         }
     }
     property int selectedSwatchIndex: -1
-    property string extractionMethod: "ImageMagick"  // "ImageMagick", "Pywal", "KDE Material You" or "Custom"
+    property string extractionMethod: "ImageMagick"  // "ImageMagick", "Material You", "Pywal"
+    property string paletteMode: "dark"  // "light", "dark"
+    
+    onPaletteModeChanged: {
+        if (root.extractionMethod === "Material You" && root.sourceColors.length > 0) {
+            var sliderPercent = 50.0
+            var seedIndex = 0
+            if (root.selectedSwatchIndex <= -101) seedIndex = -100 - root.selectedSwatchIndex
+            backend.generateMaterialYouPaletteFromSeeds(root.sourceColors, root.paletteMode, seedIndex, sliderPercent)
+        } else if (root.extractionMethod === "ImageMagick" && root.selectedImagePath !== "") {
+            backend.extractColors(root.selectedImagePath, root.extractionMethod, root.paletteMode)
+        }
+    }
     
     // Starship accent colors
     property string selectedAccent: ""
@@ -258,6 +269,24 @@ Kirigami.ApplicationWindow {
         ulauncherShortcutColorSelSource = ""
         ulauncherWhenSelectedSource = ""
         ulauncherWhenNotSelectedSource = ""
+    }
+
+    // Reset only the palette-related UI state (keeps other settings intact)
+    function resetPaletteState() {
+        extractedColors = []
+        basePaletteColors = []
+        extractedAccent = ""
+        baseSourceColors = []
+        sourceColors = []
+        sourceColorsCount = 0
+        sourceColor0 = ""
+        sourceColor1 = ""
+        sourceColor2 = ""
+        sourceColor3 = ""
+        sourceColor4 = ""
+        sourceColor5 = ""
+        sourceColor6 = ""
+        selectedSwatchIndex = -1
     }
     
     // =========================================================================
@@ -573,14 +602,9 @@ Kirigami.ApplicationWindow {
         target: backend
         
         function onColorsExtracted(colors) {
-            // Store the base palette and apply current slider variant
+            // Store the base palette
             root.basePaletteColors = colors
-            if (root.extractionMethod !== "Custom") {
-                var sliderPercent = (root.paletteSliderValue / 8) * 100
-                root.extractedColors = backend.applyPaletteVariant(colors, sliderPercent)
-            } else {
-                root.extractedColors = colors
-            }
+            root.extractedColors = colors
             centralPanel.hideBusyIndicator()
         }
         
@@ -594,6 +618,9 @@ Kirigami.ApplicationWindow {
             var colors = JSON.parse(colorsJson)
             
             root.baseSourceColors = colors
+            // Keep `sourceColors` equal to the original extracted seeds (do not
+            // apply tonal variants to accents). The tonal slider will not
+            // modify these accent swatches.
             root.sourceColors = colors
             root.sourceColorsCount = colors.length
             
@@ -606,12 +633,24 @@ Kirigami.ApplicationWindow {
             root.sourceColor5 = colors.length > 5 ? colors[5] : ""
             root.sourceColor6 = colors.length > 6 ? colors[6] : ""
             
-            // Apply palette variant if needed
-            if (root.paletteSliderValue !== 4) {
-                var sliderPercent = (root.paletteSliderValue / 8) * 100
-                root.sourceColors = backend.applyPaletteVariant(colors, sliderPercent)
+            // Set default selected acento to the first one if not already set to a valid source color
+            if (root.selectedSwatchIndex < -100 || root.selectedSwatchIndex > -100 - colors.length) {
+                root.selectedSwatchIndex = -100  // First accent (Material You #1)
             }
             
+            // Note: do NOT apply tonal variants to `sourceColors` (recommended accents).
+            // The main palette (`extractedColors`) is the only thing variant-applied.
+
+            // If we're in Material You mode, trigger palette generation now
+            if (root.extractionMethod === "Material You" && backend && backend.isMaterialYouAvailable()) {
+                var sliderPercent = 50.0
+                var seedIndex = 0
+                if (root.selectedSwatchIndex <= -101) seedIndex = -100 - root.selectedSwatchIndex
+                var mode = root.paletteMode
+                // Use seeds we just received to generate palette without backend caches
+                backend.generateMaterialYouPaletteFromSeeds(colors, mode, seedIndex, sliderPercent)
+            }
+
             centralPanel.hideBusyIndicator()
         }
         

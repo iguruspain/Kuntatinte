@@ -23,6 +23,15 @@ ColumnLayout {
     Layout.fillWidth: true  // Expands to fill available space
     spacing: 0
     
+    function getContrastTextColor(bgColor) {
+        // Calculate luminance and return contrasting text color
+        var r = parseInt(bgColor.slice(1,3), 16) / 255.0;
+        var g = parseInt(bgColor.slice(3,5), 16) / 255.0;
+        var b = parseInt(bgColor.slice(5,7), 16) / 255.0;
+        var lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        return lum > 0.5 ? "#000000" : "#ffffff";
+    }
+    
     // Functions to control busy indicator (called from Main.qml)
     function showBusyIndicator() {
         busyIndicator.visible = true
@@ -132,12 +141,13 @@ ColumnLayout {
             }
             
             Controls.ToolButton {
-                x: previewImage.x + previewImage.imageX + previewImage.paintedWidth - width - Kirigami.Units.smallSpacing
-                y: previewImage.y + previewImage.imageY + previewImage.paintedHeight - height - Kirigami.Units.smallSpacing
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.rightMargin: Kirigami.Units.smallSpacing
+                anchors.bottomMargin: Kirigami.Units.smallSpacing
                 visible: root.selectedImagePath !== "" && previewImage.status === Image.Ready
                 icon.name: "viewimage"
                 Controls.ToolTip.text: "Apply Wallpaper"
-                Controls.ToolTip.visible: hovered
                 onClicked: { if (backend) backend.setAsWallpaper(root.selectedImagePath) }
             }
             
@@ -156,12 +166,11 @@ ColumnLayout {
             
             Controls.ComboBox {
                 id: extractionMethodCombo
-                model: ["ImageMagick", "KDE Material You", "Pywal", "Custom"]
+                model: ["ImageMagick", "Material You", "Pywal"]
                 currentIndex: {
                     switch(root.extractionMethod) {
-                        case "KDE Material You": return 1
+                        case "Material You": return 1
                         case "Pywal": return 2
-                        case "Custom": return 3
                         default: return 0  // ImageMagick
                     }
                 }
@@ -174,40 +183,39 @@ ColumnLayout {
                 onCurrentTextChanged: {
                     root.extractionMethod = currentText
                     
-                    // Only process Custom mode after initialization
+                    // Reset palette UI when switching extraction method
+                    // to avoid showing previous palette/accents sections.
                     if (!initialized) return
-                    
-                    if (currentText === "Custom") {
-                        // Try to load saved custom palette
-                        var savedPalette = backend.loadCustomPalette()
-                        if (savedPalette.length > 0) {
-                            root.extractedColors = savedPalette
-                            root.basePaletteColors = savedPalette  // Also set as base for slider
-                        } else if (root.extractedColors.length > 0) {
-                            // Use current colors as base
-                            root.basePaletteColors = root.extractedColors.slice()
-                        }
-                        
-                        // Try to load saved custom accent
-                        var savedAccent = backend.loadCustomAccent()
-                        if (savedAccent !== "") {
-                            root.extractedAccent = savedAccent
-                        }
-                    }
+                    root.resetPaletteState()
+                    // Do not auto-generate palette on method change; follow Extract button behavior
                 }
             }
+
+            // (Material You mode selector moved below, before the palette section)
             
             // (Removed) Color set selector for System extraction.
             
             Controls.ToolButton {
                 icon.name: "color-picker"
-                enabled: (root.selectedImagePath !== "" || root.extractionMethod === "KDE Material You") && root.extractionMethod !== "Custom"
+                enabled: (root.selectedImagePath !== "" || root.extractionMethod === "Material You") && !busyIndicator.visible
                 Controls.ToolTip.text: "Extract Palette"
                 Controls.ToolTip.visible: hovered
                 onClicked: {
-                    if (backend) {
-                        busyIndicator.visible = true
-                        backend.extractColors(root.selectedImagePath, root.extractionMethod)
+                    if (!backend) return
+                    busyIndicator.visible = true
+
+                    if (root.extractionMethod === "Material You") {
+                            // For Material You: extract accent and source colors. Generation
+                            // will be triggered after source colors are returned.
+                                if (root.selectedImagePath !== "") {
+                                    backend.extractAccent(root.selectedImagePath)
+                                    if (backend.isMaterialYouAvailable()) {
+                                        backend.extractSourceColors(root.selectedImagePath)
+                                    }
+                                }
+                        } else {
+                        // Default behavior for other extraction methods
+                        backend.extractColors(root.selectedImagePath, root.extractionMethod, root.paletteMode)
                         // Extract accent and source colors only if there's an image
                         if (root.selectedImagePath !== "") {
                             backend.extractAccent(root.selectedImagePath)
@@ -218,56 +226,18 @@ ColumnLayout {
                     }
                 }
             }
-            
-            Controls.ToolButton {
-                icon.name: "document-save"
-                visible: root.extractionMethod === "Custom"
-                Controls.ToolTip.text: "Save Custom Palette"
-                Controls.ToolTip.visible: hovered
-                onClicked: {
-                    if (backend && root.extractedColors.length > 0) {
-                        backend.saveCustomPalette(root.extractedColors)
-                        if (root.extractedAccent !== "") {
-                            backend.saveCustomAccent(root.extractedAccent)
-                        }
-                    }
-                }
+
+            // (Pywal uses its own extraction defaults; no Light/Dark selector)
+
+            // Busy indicator for extraction/generation actions
+            Controls.BusyIndicator {
+                id: busyIndicator
+                Layout.alignment: Qt.AlignVCenter
+                visible: false
             }
-            
-            Controls.ToolButton {
-                icon.name: "edit-clear"
-                visible: root.extractionMethod === "Custom"
-                Controls.ToolTip.text: "Reset Custom Palette"
-                Controls.ToolTip.visible: hovered
-                onClicked: {
-                    if (backend) {
-                        backend.resetCustomPalette()
-                        // Reset to default: extract from image if available, otherwise clear
-                        if (root.selectedImagePath !== "") {
-                            backend.extractColors(root.selectedImagePath, "ImageMagick")
-                            backend.extractAccent(root.selectedImagePath)
-                            if (backend.isMaterialYouAvailable()) {
-                                // backend.extractSourceColors(root.selectedImagePath)
-                            }
-                        } else {
-                            root.extractedColors = []
-                            root.basePaletteColors = []
-                            root.extractedAccent = ""
-                            root.sourceColors = []
-                            root.baseSourceColors = []
-                        }
-                        root.paletteSliderValue = 4  // Reset slider to TonalSpot
-                    }
-                }
-            }
+
         }
-        
-        Controls.BusyIndicator {
-            id: busyIndicator
-            Layout.alignment: Qt.AlignHCenter
-            visible: false
-        }
-        
+
         // Color palette
         ColumnLayout {
             id: paletteColumn
@@ -276,9 +246,42 @@ ColumnLayout {
             opacity: root.extractedColors.length > 0 ? 1 : 0
             
             // === PALETTE SECTION ===
-            Controls.Label {
-                text: "Palette"
-                font.bold: true
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Kirigami.Units.smallSpacing
+
+                Controls.Label {
+                    text: "Palette"
+                    font.bold: true
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
+                // Palette mode selector
+                Controls.ButtonGroup {
+                    id: paletteModeGroup
+                }
+
+                Controls.RadioButton {
+                    text: "Light"
+                    checked: root.paletteMode === "light"
+                    Controls.ButtonGroup.group: paletteModeGroup
+                    onClicked: root.paletteMode = "light"
+                    visible: root.extractionMethod !== "Pywal"
+                }
+
+                Controls.RadioButton {
+                    text: "Dark"
+                    checked: root.paletteMode === "dark"
+                    Controls.ButtonGroup.group: paletteModeGroup
+                    onClicked: root.paletteMode = "dark"
+                    visible: root.extractionMethod !== "Pywal"
+                }
+
+                // Busy indicator next to radio buttons
+                Controls.BusyIndicator {
+                    Layout.alignment: Qt.AlignVCenter
+                    visible: busyIndicator.visible
+                }
             }
             
             // First row of palette colors (0-7)
@@ -306,7 +309,7 @@ ColumnLayout {
                             acceptedButtons: Qt.LeftButton | Qt.RightButton
                             enabled: index < root.extractedColors.length
                             onClicked: function(mouse) {
-                                if (mouse.button === Qt.RightButton && root.extractionMethod === "Custom") {
+                                if (mouse.button === Qt.RightButton) {
                                     var newColor = backend.pickColor()
                                     if (newColor !== "") {
                                         var colors = root.extractedColors.slice()
@@ -348,7 +351,7 @@ ColumnLayout {
                             acceptedButtons: Qt.LeftButton | Qt.RightButton
                             enabled: colorIndex < root.extractedColors.length
                             onClicked: function(mouse) {
-                                if (mouse.button === Qt.RightButton && root.extractionMethod === "Custom") {
+                                if (mouse.button === Qt.RightButton) {
                                     var newColor = backend.pickColor()
                                     if (newColor !== "") {
                                         var colors = root.extractedColors.slice()
@@ -366,7 +369,7 @@ ColumnLayout {
             
             // === RECOMMENDED ACCENTS SECTION ===
             Controls.Label {
-                text: "Recommended Accents"
+                text: root.extractionMethod === "Material You" ? "Recommended Accents (select accent to change palette)" : "Recommended Accents"
                 font.bold: true
                 Layout.topMargin: Kirigami.Units.smallSpacing
                 visible: root.extractedAccent !== "" || (root.sourceColors && root.sourceColors.length > 0)
@@ -401,7 +404,7 @@ ColumnLayout {
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                         onClicked: function(mouse) {
-                            if (mouse.button === Qt.RightButton && root.extractionMethod === "Custom") {
+                            if (mouse.button === Qt.RightButton) {
                                 var newColor = backend.pickColor()
                                 if (newColor !== "") {
                                     root.extractedAccent = newColor
@@ -428,6 +431,15 @@ ColumnLayout {
                         border.width: root.selectedSwatchIndex === (-100 - index) ? 3 : 1
                         radius: 4
                         
+                        Kirigami.Icon {
+                            anchors.centerIn: parent
+                            width: 16
+                            height: 16
+                            source: "dialog-ok"
+                            color: centralPanel.getContrastTextColor(modelData)
+                            visible: root.selectedSwatchIndex === (-100 - index) && root.extractionMethod === "Material You"
+                        }
+                        
                         Controls.ToolTip.text: modelData + " (Material You #" + (index + 1) + ")"
                         Controls.ToolTip.visible: sourceColorMouse.containsMouse
                         
@@ -438,52 +450,18 @@ ColumnLayout {
                             hoverEnabled: true
                             onClicked: {
                                 root.selectedSwatchIndex = -100 - index
+                                // If Material You mode active, regenerate palette using this seed
+                                    if (root.extractionMethod === "Material You" && backend && backend.isMaterialYouAvailable()) {
+                                        var sliderPercent = 50.0
+                                    if (root.baseSourceColors && root.baseSourceColors.length > 0) {
+                                        backend.generateMaterialYouPaletteFromSeeds(root.baseSourceColors, root.paletteMode, index, sliderPercent)
+                                        } else {
+                                            backend.generateMaterialYouPalette(root.selectedImagePath, index, sliderPercent)
+                                        }
+                                    }
                             }
                         }
                     }
-                }
-            }
-            
-            // === TONES SECTION ===
-            Controls.Label {
-                text: "Tones"
-                font.bold: true
-                Layout.topMargin: Kirigami.Units.smallSpacing
-            }
-            
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Kirigami.Units.smallSpacing
-                
-                Controls.Slider {
-                    id: paletteSlider
-                    Layout.fillWidth: true
-                    from: 0
-                    to: 8
-                    value: root.paletteSliderValue
-                    stepSize: 1
-                    snapMode: Controls.Slider.SnapAlways
-                    
-                    onMoved: {
-                        root.paletteSliderValue = value
-                        var sliderPercent = (value / 8) * 100
-                        
-                        if (root.basePaletteColors.length > 0) {
-                            root.extractedColors = backend.applyPaletteVariant(root.basePaletteColors, sliderPercent)
-                        }
-                        
-                        if (root.baseSourceColors && root.baseSourceColors.length > 0) {
-                            root.sourceColors = backend.applyPaletteVariant(root.baseSourceColors, sliderPercent)
-                        }
-                    }
-                }
-                
-                Controls.Label {
-                    text: backend ? backend.getVariantName((root.paletteSliderValue / 8) * 100) : ""
-                    Layout.preferredWidth: 80
-                    horizontalAlignment: Text.AlignRight
-                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                    color: Kirigami.Theme.disabledTextColor
                 }
             }
             

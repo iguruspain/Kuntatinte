@@ -6,12 +6,15 @@ extraction and application theming.
 """
 
 import json
+import logging
 import subprocess
 import threading
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QStandardPaths, QMetaObject, Qt, Q_ARG
+logger = logging.getLogger(__name__)
+
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QStandardPaths
 from PyQt6.QtCore import pyqtProperty  # type: ignore[attr-defined]
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QFileDialog, QColorDialog
@@ -23,24 +26,6 @@ from core.material_you_colors import (
     is_available as is_material_you_available,
 )
 from core import autogen
-from integrations.starship import apply_starship_colors, load_starship_colors, restore_starship_backup
-from integrations.fastfetch import (
-    apply_fastfetch_accent, 
-    restore_fastfetch_backup,
-    get_current_logo_path,
-    get_active_logo_path,
-    get_template_path,
-    get_custom_logo_path,
-    generate_tinted_preview,
-    set_custom_logo
-)
-from integrations.ulauncher import (
-    apply_ulauncher_theme,
-    restore_ulauncher_backup,
-    refresh_ulauncher,
-    get_current_colors as get_ulauncher_colors,
-    is_ulauncher_installed
-)
 from integrations.kuntatinte_colors import (
     # kde_colors exports
     get_current_scheme_name,
@@ -61,13 +46,10 @@ from integrations.kuntatinte_colors import (
     get_section_colors,
     save_color_scheme_from_data,
     # kde_colors_v2 exports
-    generate_kuntatinte_schemes,
-    save_kuntatinte_scheme,
-    apply_kuntatinte_scheme,
     generate_and_save_kuntatinte_schemes,
     get_preview_data,
-    KuntatinteSchemeGenerator,
 )
+from integrations.pywal import generate_palette as pywal_generate_palette
 
 
 
@@ -81,10 +63,11 @@ def is_command_available(command: str) -> bool:
         result = subprocess.run(
             ["which", command],
             capture_output=True,
-            text=True
+            text=True,
+            check=True
         )
         return result.returncode == 0
-    except Exception:
+    except (OSError, subprocess.CalledProcessError):
         return False
 
 
@@ -115,10 +98,27 @@ class PaletteBackend(QObject):
         return config.debug_ui
     
     def __init__(self, parent: Optional[QObject] = None) -> None:
+        """Initialize the palette backend.
+        
+        Sets up caches, loads configuration, and initializes the wallpaper folder
+        if one is configured.
+        
+        Args:
+            parent: Parent QObject for Qt ownership hierarchy
+        """
         super().__init__(parent)
         self._image_list: list[str] = []
         self._current_folder: Optional[Path] = None
         self._screenshot_counter = 0
+        # Material You cache
+        self._material_you_cache: dict[str, list[str]] = {}
+        # No specific Pywal mode — use pywal module defaults
+        # Keep last extracted source colors per image to avoid re-extraction
+        self._last_source_colors: dict[str, list[str]] = {}
+        # Track extractions in progress to avoid concurrent work
+        self._extract_in_progress: set[str] = set()
+        # Remember last emitted JSON for source colors to avoid duplicate signals
+        self._last_emitted_source_json: dict[str, str] = {}
         
         # Load default wallpapers folder from config
         if config.wallpapers_folder and config.wallpapers_folder.exists():
@@ -145,7 +145,7 @@ class PaletteBackend(QObject):
         self._screenshot_counter += 1
         filename = f"{self._screenshot_counter:03d}_{event_name}.png"
         filepath = debug_dir / filename
-        print(f"[UI] Capturing screenshot: {filepath}")
+        logger.info(f"[UI] Capturing screenshot: {filepath}")
         subprocess.run(
             ["spectacle", "-b", "-n", "-o", str(filepath)],
             check=False
@@ -170,6 +170,8 @@ class PaletteBackend(QObject):
     @pyqtSlot(result='QVariantList')
     def getAvailableSettings(self) -> list[str]:
         """Get list of available settings based on installed applications."""
+        from integrations.ulauncher import is_ulauncher_installed
+        
         available = []
         if is_fastfetch_installed():
             available.append("Fastfetch")
@@ -255,22 +257,25 @@ class PaletteBackend(QObject):
     # Color Extraction Methods
     # =========================================================================
     
-    @pyqtSlot(str, str)
-    def extractColors(self, image_path: str, method: str = "ImageMagick") -> None:
+    @pyqtSlot(str, str, str)
+    def extractColors(self, image_path: str, method: str = "ImageMagick", mode: str = "dark") -> None:
         """Extract color palette from an image in a background thread.
         
         Args:
             image_path: Path to the image file
             method: Extraction method ("ImageMagick", "Pywal", or "KDE Material You")
+            mode: Palette mode ("light" or "dark")
         """
         def _extract():
+            """Internal function to perform color extraction in background thread."""
             try:
                 if method == "Pywal":
                     colors = self._extract_colors_pywal(image_path)
                 elif method == "KDE Material You":
                     colors = self._extract_colors_kde_material_you(image_path)
                 else:
-                    colors = extract_colors_from_wallpaper(image_path)
+                    # For ImageMagick extraction, use specified mode
+                    colors = extract_colors_from_wallpaper(image_path, mode)
                 
                 if colors is None:
                     colors = []
@@ -305,39 +310,19 @@ class PaletteBackend(QObject):
     
     def _extract_colors_pywal(self, image_path: str) -> list:
         """Extract colors using pywal from cache or by generating new ones."""
-        cache_file = Path.home() / ".cache" / "wal" / "colors.json"
-        
+        # Prefer the Python API integration; fall back will raise and be handled by the caller.
         try:
-            # Generate colors with wal command
-            # --cols16 generates 16 unique colors instead of repeating 8
-            subprocess.run(
-                ["wal", "-i", image_path, "-n", "-q", "-e", "--cols16"],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            
-            # Read from cache file
-            if cache_file.exists():
-                with open(cache_file, 'r') as f:
-                    colors_dict = json.load(f)
-                colors = colors_dict.get('colors', {})
-                return [colors[f'color{i}'] for i in range(16) if f'color{i}' in colors]
-            else:
-                self.extractionError.emit("Pywal cache file not found")
+            colors = pywal_generate_palette(image_path, cols=16)
+            if not colors:
+                self.extractionError.emit("Pywal returned no colors")
                 return []
-                
-        except FileNotFoundError:
-            self.extractionError.emit("wal is not installed. Install with: pip install pywal")
-            return []
-        except subprocess.TimeoutExpired:
-            self.extractionError.emit("Timeout while running wal")
-            return []
-        except json.JSONDecodeError:
-            self.extractionError.emit("Error reading pywal colors file")
-            return []
+            # Normalize to hex strings for the rest of the pipeline
+            return self._normalize_colors_to_hex(colors)
         except Exception as e:
-            self.extractionError.emit(f"Pywal error: {str(e)}")
+            msg = str(e)
+            if 'no está instalado' in msg or 'wal (pywal CLI) no está instalado' in msg or 'pywal no está instalado' in msg:
+                msg = msg + ". Instale con: pip install pywal"
+            self.extractionError.emit(msg)
             return []
     
     def _extract_colors_kde_material_you(self, image_path: str) -> list:
@@ -350,7 +335,7 @@ class PaletteBackend(QObject):
         
         try:
             if cache_file.exists():
-                with open(cache_file, 'r') as f:
+                with open(cache_file, 'r', encoding='utf-8') as f:
                     colors_dict = json.load(f)
                 colors = colors_dict.get('colors', {})
                 return [colors[f'color{i}'] for i in range(16) if f'color{i}' in colors]
@@ -407,13 +392,17 @@ class PaletteBackend(QObject):
     def extractAccent(self, image_path: str) -> None:
         """Extract the best accent color from an image in a background thread."""
         def _extract():
+            """Internal function to perform accent color extraction in background thread."""
             try:
+                logger.debug(f"extractAccent: extracting accent for {image_path}")
                 accent = extract_accent_from_wallpaper(image_path)
+                logger.debug(f"extractAccent: result={accent}")
                 if accent:
                     self.accentExtracted.emit(accent)
                 else:
                     self.extractionError.emit("Could not extract a vibrant accent color")
             except Exception as e:
+                logger.error(f"extractAccent error: {e}")
                 self.extractionError.emit(str(e))
         
         thread = threading.Thread(target=_extract, daemon=True)
@@ -426,20 +415,26 @@ class PaletteBackend(QObject):
         These are the seed colors that Material You uses to generate
         complete color schemes. Returns multiple options the user can choose from.
         """
-        try:
-            if not is_material_you_available():
-                self.extractionError.emit("Material You extraction not available. Install materialyoucolor and Pillow.")
-                return
-            
-            colors = extract_source_colors_from_image(image_path, max_colors=7)
-            if colors:
-                colors_json = json.dumps(colors)
-                print(f"Material You source colors extracted ({len(colors)}): {colors}")
-                self.sourceColorsExtracted.emit(colors_json)
-            else:
-                self.extractionError.emit("Could not extract Material You colors")
-        except Exception as e:
-            self.extractionError.emit(str(e))
+        def _worker():
+            try:
+                if not is_material_you_available():
+                    self.extractionError.emit("Material You extraction not available. Install materialyoucolor and Pillow.")
+                    return
+
+                colors = extract_source_colors_from_image(image_path, max_colors=7)
+                if colors:
+                    colors_json = json.dumps(colors)
+                    logger.info(f"Material You source colors extracted ({len(colors)}): {colors}")
+                    # Emit the fresh result (no caching)
+                    self.sourceColorsExtracted.emit(colors_json)
+                else:
+                    self.extractionError.emit("Could not extract Material You colors")
+            except Exception as e:
+                self.extractionError.emit(str(e))
+
+        # Run extraction in background thread without guards or caching
+        thread = threading.Thread(target=_worker, daemon=True)
+        thread.start()
 
     @pyqtSlot(str, result='QString')
     def runAutogen(self, mode: str) -> str:
@@ -461,6 +456,71 @@ class PaletteBackend(QObject):
     def isMaterialYouAvailable(self) -> bool:
         """Check if Material You color extraction is available."""
         return is_material_you_available()
+
+    
+
+    @pyqtSlot(str, int, float)
+    def generateMaterialYouPalette(self, image_path: str, seed_index: int = 0, slider_percent: float = 50.0) -> None:
+        """Generate a Material You style palette from an image seed in background.
+
+        Args:
+            image_path: path to image to extract seeds from (can be empty)
+            seed_index: which source color index to use (0..n)
+            slider_percent: 0-100 saturation/variant parameter
+        """
+        def worker():
+            try:
+                # Always perform a fresh extraction of source colors for this
+                # generation to avoid shared caches/guards. We intentionally do
+                # not rely on any stored state.
+                seeds = extract_source_colors_from_image(image_path, max_colors=7)
+                if not seeds:
+                    self.extractionError.emit("Could not extract Material You source colors for generation")
+                    return
+
+                idx = max(0, min(seed_index, len(seeds) - 1))
+                seed = seeds[idx]
+
+                from core.color_utils import generate_palette_from_seed
+
+                palette = generate_palette_from_seed(seed, mode=mode, slider_percent=slider_percent)
+
+                # Emit to QML (no caching)
+                self.colorsExtracted.emit(palette)
+            except Exception as e:
+                self.extractionError.emit(str(e))
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
+
+    @pyqtSlot('QVariantList', str, int, float)
+    def generateMaterialYouPaletteFromSeeds(self, seeds, mode: str, seed_index: int = 0, slider_percent: float = 50.0) -> None:
+        """Generate Material You palette from supplied seeds (no caching).
+
+        Args:
+            seeds: list of seed hex strings (QVariantList from QML)
+            mode: "light" or "dark"
+            seed_index: index to use
+            slider_percent: variant parameter 0-100
+        """
+        def worker():
+            try:
+                if not seeds or len(seeds) == 0:
+                    self.extractionError.emit("No source seeds provided for generation")
+                    return
+
+                idx = max(0, min(seed_index, len(seeds) - 1))
+                seed = seeds[idx]
+
+                from core.color_utils import generate_palette_from_seed
+
+                palette = generate_palette_from_seed(seed, mode=mode, slider_percent=slider_percent)
+                self.colorsExtracted.emit(palette)
+            except Exception as e:
+                self.extractionError.emit(str(e))
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
     
     # =========================================================================
     # Color Selection Methods (for logging/debugging)
@@ -469,12 +529,12 @@ class PaletteBackend(QObject):
     @pyqtSlot(str)
     def setAccentColor(self, color: str) -> None:
         """Store the selected accent color (does not apply to system)."""
-        print(f"Accent color selected: {color}")
+        logger.info(f"Accent color selected: {color}")
     
     @pyqtSlot(str)
     def setAccentTextColor(self, color: str) -> None:
         """Store the selected accent text color (does not apply to system)."""
-        print(f"Accent text color selected: {color}")
+        logger.info(f"Accent text color selected: {color}")
     
     # =========================================================================
     # Color Picker Dialogs
@@ -505,106 +565,8 @@ class PaletteBackend(QObject):
         return color.name() if color.isValid() else ""
     
     # =========================================================================
-    # Custom Palette Methods
-    # =========================================================================
-    
-    @pyqtSlot(list)
-    def saveCustomPalette(self, colors: list[str]) -> None:
-        """Save custom palette to config file.
-        
-        Args:
-            colors: List of hex color strings
-        """
-        config.set_custom_palette(colors)
-        print(f"Custom palette saved: {len(colors)} colors")
-
-    @pyqtSlot(str, result='bool')
-    def saveAutogenDump(self, json_str: str) -> bool:
-        """Save autogen JSON dump to a temp file for inspection.
-
-        Returns True on success, False on error.
-        """
-        try:
-            out = Path('/tmp/kuntatinte_autogen.json')
-            out.write_text(json_str, encoding='utf-8')
-            print(f"Autogen dump saved to: {out}")
-            return True
-        except Exception as e:
-            print(f"Failed to save autogen dump: {e}")
-            return False
-    
-    @pyqtSlot(result='QVariantList')
-    def loadCustomPalette(self) -> list[str]:
-        """Load custom palette from config file.
-        
-        Returns:
-            List of hex color strings, or empty list if not set
-        """
-        palette = config.custom_palette
-        if palette:
-            print(f"Custom palette loaded: {len(palette)} colors")
-        return palette
-    
-    @pyqtSlot(str)
-    def saveCustomAccent(self, color: str) -> None:
-        """Save custom accent color to config file.
-        
-        Args:
-            color: Hex color string
-        """
-        config.set_custom_accent(color)
-        print(f"Custom accent saved: {color}")
-    
-    @pyqtSlot(result='QString')
-    def loadCustomAccent(self) -> str:
-        """Load custom accent color from config file.
-        
-        Returns:
-            Hex color string, or empty string if not set
-        """
-        accent = config.custom_accent
-        if accent:
-            print(f"Custom accent loaded: {accent}")
-        return accent
-    
-    @pyqtSlot()
-    def resetCustomPalette(self) -> None:
-        """Reset custom palette and accent, removing them from config file."""
-        config.set_custom_palette([])
-        config.set_custom_accent("")
-        print("Custom palette and accent reset")
-    
-    # =========================================================================
     # Palette Variants
     # =========================================================================
-    
-    @pyqtSlot(list, float, result='QVariantList')
-    def applyPaletteVariant(self, colors: list[str], slider_value: float) -> list[str]:
-        """Apply palette variant based on slider value.
-        
-        Args:
-            colors: Original palette colors
-            slider_value: Slider position (0-100)
-        
-        Returns:
-            Transformed palette
-        """
-        from core.color_utils import get_palette_at_slider_position
-        return get_palette_at_slider_position(colors, slider_value)
-    
-    @pyqtSlot(float, result='QString')
-    def getVariantName(self, slider_value: float) -> str:
-        """Get variant name at slider position.
-        
-        Args:
-            slider_value: Slider position (0-100)
-        
-        Returns:
-            Name of the closest variant
-        """
-        from core.color_utils import get_variant_name_at_slider_position
-        return get_variant_name_at_slider_position(slider_value)
-    
     # =========================================================================
     # Wallpaper Methods
     # =========================================================================
@@ -615,12 +577,12 @@ class PaletteBackend(QObject):
         try:
             # Use plasma-apply-wallpaperimage (Plasma 6)
             subprocess.run(['plasma-apply-wallpaperimage', image_path], check=True)
-            print(f"Wallpaper set to: {image_path}")
+            logger.info(f"Wallpaper set to: {image_path}")
         except FileNotFoundError:
             # Fallback: try with qdbus
             self._set_wallpaper_via_qdbus(image_path)
         except Exception as e:
-            print(f"Error setting wallpaper: {e}")
+            logger.error(f"Error setting wallpaper: {e}")
     
     def _set_wallpaper_via_qdbus(self, image_path: str) -> None:
         """Set wallpaper using qdbus as fallback method."""
@@ -638,9 +600,9 @@ class PaletteBackend(QObject):
                 'qdbus', 'org.kde.plasmashell', '/PlasmaShell',
                 'org.kde.PlasmaShell.evaluateScript', script
             ], check=True)
-            print(f"Wallpaper set via qdbus to: {image_path}")
+            logger.info(f"Wallpaper set via qdbus to: {image_path}")
         except Exception as e:
-            print(f"Error setting wallpaper via qdbus: {e}")
+            logger.error(f"Error setting wallpaper via qdbus: {e}")
     
     # =========================================================================
     # Starship Integration
@@ -659,6 +621,8 @@ class PaletteBackend(QObject):
         Returns:
             Empty string on success, error message on failure.
         """
+        from integrations.starship import apply_starship_colors
+        
         colors = {
             'accent': accent,
             'accent_text': accent_text,
@@ -678,10 +642,10 @@ class PaletteBackend(QObject):
         
         success, message = apply_starship_colors(colors)
         if success:
-            print(f"Starship colors applied: {colors}")
+            logger.info(f"Starship colors applied: {colors}")
             return ""
         else:
-            print(f"Error applying starship colors: {message}")
+            logger.error(f"Error applying starship colors: {message}")
             return message
     
     @pyqtSlot(result='QVariantMap')
@@ -691,8 +655,10 @@ class PaletteBackend(QObject):
         Returns:
             Dictionary with color values (empty string if not found).
         """
+        from integrations.starship import load_starship_colors
+        
         colors = load_starship_colors()
-        print(f"Starship colors loaded: {colors}")
+        logger.info(f"Starship colors loaded: {colors}")
         return colors
     
     @pyqtSlot(result='QString')
@@ -702,12 +668,14 @@ class PaletteBackend(QObject):
         Returns:
             Empty string on success, error message on failure.
         """
+        from integrations.starship import restore_starship_backup
+        
         success, message = restore_starship_backup()
         if success:
-            print("Starship backup restored")
+            logger.info("Starship backup restored")
             return ""
         else:
-            print(f"Error restoring starship backup: {message}")
+            logger.error(f"Error restoring starship backup: {message}")
             return message
     
     # =========================================================================
@@ -721,15 +689,17 @@ class PaletteBackend(QObject):
         Returns:
             Empty string on success, error message on failure.
         """
+        from integrations.fastfetch import apply_fastfetch_accent
+        
         if not accent:
             return "No accent color provided"
         
         success, message = apply_fastfetch_accent(accent)
         if success:
-            print(f"Fastfetch accent applied: {accent}")
+            logger.info(f"Fastfetch accent applied: {accent}")
             return ""
         else:
-            print(f"Error applying fastfetch accent: {message}")
+            logger.error(f"Error applying fastfetch accent: {message}")
             return message
     
     @pyqtSlot(result='QString')
@@ -739,12 +709,14 @@ class PaletteBackend(QObject):
         Returns:
             Empty string on success, error message on failure.
         """
+        from integrations.fastfetch import restore_fastfetch_backup
+        
         success, message = restore_fastfetch_backup()
         if success:
-            print("Fastfetch logo restored from backup")
+            logger.info("Fastfetch logo restored from backup")
             return ""
         else:
-            print(f"Error restoring fastfetch logo: {message}")
+            logger.error(f"Error restoring fastfetch logo: {message}")
             return message
     
     @pyqtSlot(result='QString')
@@ -754,6 +726,8 @@ class PaletteBackend(QObject):
         Returns:
             Path to default template as file:// URL, or empty string.
         """
+        from integrations.fastfetch import get_template_path
+        
         path = get_template_path()
         if path and Path(path).exists():
             return f"file://{path}"
@@ -766,6 +740,8 @@ class PaletteBackend(QObject):
         Returns:
             Path to active logo as file:// URL, or empty string.
         """
+        from integrations.fastfetch import get_active_logo_path
+        
         path = get_active_logo_path()
         if path and Path(path).exists():
             return f"file://{path}"
@@ -778,6 +754,8 @@ class PaletteBackend(QObject):
         Returns:
             Path to custom logo as file:// URL, or empty string if using default.
         """
+        from integrations.fastfetch import get_custom_logo_path
+        
         path = get_custom_logo_path()
         if path:
             return f"file://{path}"
@@ -793,6 +771,8 @@ class PaletteBackend(QObject):
         Returns:
             Path to preview image as file:// URL, or empty string.
         """
+        from integrations.fastfetch import get_active_logo_path, generate_tinted_preview
+        
         if not accent:
             return ""
         
@@ -838,6 +818,8 @@ class PaletteBackend(QObject):
         Returns:
             Empty string on success, error message on failure.
         """
+        from integrations.fastfetch import set_custom_logo
+        
         # Convert file:// URL to path
         if image_url.startswith("file://"):
             image_path = image_url[7:]
@@ -846,10 +828,10 @@ class PaletteBackend(QObject):
         
         success, message = set_custom_logo(image_path)
         if success:
-            print(f"Fastfetch custom logo: {image_path if image_path else 'reset to default'}")
+            logger.info(f"Fastfetch custom logo: {image_path if image_path else 'reset to default'}")
             return ""
         else:
-            print(f"Error setting fastfetch logo: {message}")
+            logger.error(f"Error setting fastfetch logo: {message}")
             return message
     
     @pyqtSlot(result='QString')
@@ -859,9 +841,11 @@ class PaletteBackend(QObject):
         Returns:
             Empty string on success, error message on failure.
         """
+        from integrations.fastfetch import set_custom_logo
+        
         success, message = set_custom_logo("")
         if success:
-            print("Fastfetch logo reset to default template")
+            logger.info("Fastfetch logo reset to default template")
             return ""
         else:
             return message
@@ -877,6 +861,7 @@ class PaletteBackend(QObject):
         Returns:
             True if Ulauncher is installed.
         """
+        from integrations.ulauncher import is_ulauncher_installed
         return is_ulauncher_installed()
 
     @pyqtSlot(str, str, int, int, str, str, str, str, str, str, str, str, str, str, str, str, str, result='QString')
@@ -905,6 +890,8 @@ class PaletteBackend(QObject):
         Returns:
             Empty string on success, error message on failure.
         """
+        from integrations.ulauncher import apply_ulauncher_theme
+        
         colors = {
             'bg_color': bg_color,
             'window_border_color': window_border_color,
@@ -930,10 +917,10 @@ class PaletteBackend(QObject):
         
         success, message = apply_ulauncher_theme(colors, opacities)
         if success:
-            print("Ulauncher theme applied")
+            logger.info("Ulauncher theme applied")
             return ""
         else:
-            print(f"Ulauncher error: {message}")
+            logger.error(f"Ulauncher error: {message}")
             return message
 
     @pyqtSlot(result='QString')
@@ -943,12 +930,13 @@ class PaletteBackend(QObject):
         Returns:
             Empty string on success, error message on failure.
         """
+        from integrations.ulauncher import restore_ulauncher_backup
         success, message = restore_ulauncher_backup()
         if success:
-            print("Ulauncher backup restored")
+            logger.info("Ulauncher backup restored")
             return ""
         else:
-            print(f"Ulauncher restore error: {message}")
+            logger.error(f"Ulauncher restore error: {message}")
             return message
 
     @pyqtSlot(result='QString')
@@ -958,12 +946,13 @@ class PaletteBackend(QObject):
         Returns:
             Empty string on success, error message on failure.
         """
+        from integrations.ulauncher import refresh_ulauncher
         success, message = refresh_ulauncher()
         if success:
-            print("Ulauncher restarted")
+            logger.info("Ulauncher restarted")
             return ""
         else:
-            print(f"Ulauncher refresh error: {message}")
+            logger.error(f"Ulauncher refresh error: {message}")
             return message
 
     @pyqtSlot(result='QVariant')
@@ -973,8 +962,9 @@ class PaletteBackend(QObject):
         Returns:
             Dictionary with color values.
         """
+        from integrations.ulauncher import get_current_colors as get_ulauncher_colors
         colors = get_ulauncher_colors()
-        print(f"Ulauncher colors loaded: {colors}")
+        logger.info(f"Ulauncher colors loaded: {colors}")
         return colors
 
     # =========================================================================
@@ -1112,10 +1102,10 @@ class PaletteBackend(QObject):
                 palette, primary_index, toolbar_opacity
             )
         if success:
-            print(f"Kuntatinte schemes generated: {message}")
+            logger.info(f"Kuntatinte schemes generated: {message}")
             return ""
         else:
-            print(f"Error generating Kuntatinte schemes: {message}")
+            logger.error(f"Error generating Kuntatinte schemes: {message}")
             return message
 
     @pyqtSlot('QVariantList', int, 'QString', result='QVariant')
