@@ -10,6 +10,49 @@ ColumnLayout {
     id: starshipSettings
     spacing: Kirigami.Units.smallSpacing
     
+    Connections {
+        target: backend
+        function onConfigChanged(section, key, value) {
+            if (section === "starship") {
+                console.log("Starship config changed:", key, "=", value)
+                if (key === "accent") {
+                    root.selectedAccent = value
+                    root.accentSource = value ? "config" : ""
+                } else if (key === "accent_text") {
+                    root.selectedAccentText = value
+                    root.accentTextSource = value ? "config" : ""
+                } else if (key === "dir_fg") {
+                    root.selectedDirFg = value
+                    root.dirFgSource = value ? "config" : ""
+                } else if (key === "dir_bg") {
+                    root.selectedDirBg = value
+                    root.dirBgSource = value ? "config" : ""
+                } else if (key === "dir_text") {
+                    root.selectedDirText = value
+                    root.dirTextSource = value ? "config" : ""
+                } else if (key === "git_fg") {
+                    root.selectedGitFg = value
+                    root.gitFgSource = value ? "config" : ""
+                } else if (key === "git_bg") {
+                    root.selectedGitBg = value
+                    root.gitBgSource = value ? "config" : ""
+                } else if (key === "git_text") {
+                    root.selectedGitText = value
+                    root.gitTextSource = value ? "config" : ""
+                } else if (key === "other_fg") {
+                    root.selectedOtherFg = value
+                    root.otherFgSource = value ? "config" : ""
+                } else if (key === "other_bg") {
+                    root.selectedOtherBg = value
+                    root.otherBgSource = value ? "config" : ""
+                } else if (key === "other_text") {
+                    root.selectedOtherText = value
+                    root.otherTextSource = value ? "config" : ""
+                }
+            }
+        }
+    }
+    
     // Action buttons row
     RowLayout {
         Layout.fillWidth: true

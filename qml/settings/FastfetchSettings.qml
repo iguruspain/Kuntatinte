@@ -10,6 +10,20 @@ ColumnLayout {
     id: fastfetchSettings
     spacing: Kirigami.Units.smallSpacing
     
+    Connections {
+        target: backend
+        function onConfigChanged(section, key, value) {
+            if (section === "fastfetch" && key === "accent") {
+                root.fastfetchAccent = value
+                root.fastfetchAccentSource = "config"
+                // Update preview if available
+                if (value) {
+                    root.fastfetchPreviewTinted = backend.generateFastfetchPreview(value)
+                }
+            }
+        }
+    }
+    
     // Action buttons row
     RowLayout {
         Layout.fillWidth: true

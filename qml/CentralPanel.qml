@@ -407,8 +407,6 @@ ColumnLayout {
                     border.width: root.selectedSwatchIndex === -2 ? 3 : 1
                     radius: 4
                     
-                    // Removed star icon for ImageMagick accent (was decorative)
-                    
                     Controls.ToolTip.text: (root.extractedAccent || "#3daee9") + " (ImageMagick)"
                     Controls.ToolTip.visible: extractedAccentSwatchMouse.containsMouse
                     MouseArea {
@@ -444,15 +442,6 @@ ColumnLayout {
                             Qt.darker(modelData, 1.3)
                         border.width: root.selectedSwatchIndex === (-100 - index) ? 3 : 1
                         radius: 4
-                        
-                        Kirigami.Icon {
-                            anchors.centerIn: parent
-                            width: 16
-                            height: 16
-                            source: "dialog-ok"
-                            color: centralPanel.getContrastTextColor(modelData)
-                            visible: root.selectedSwatchIndex === (-100 - index) && root.extractionMethod === "Material You"
-                        }
                         
                         Controls.ToolTip.text: modelData + " (Material You #" + (index + 1) + ")"
                         Controls.ToolTip.visible: sourceColorMouse.containsMouse
@@ -495,7 +484,13 @@ ColumnLayout {
                         try {
                             var comp = Qt.createComponent("AutogenDialog.qml")
                             if (comp.status === Component.Ready) {
-                                var dlg = comp.createObject(root, { backend: backend, busyIndicator: busyIndicator })
+                                var dlg = comp.createObject(root, { 
+                                    backend: backend, 
+                                    busyIndicator: busyIndicator,
+                                    paletteMode: root.paletteMode,
+                                    selectedImagePath: root.selectedImagePath,
+                                    selectedColor: root.selectedColor
+                                })
                                 if (dlg) dlg.open()
                                 else console.log("Failed to create AutogenDialog object")
                             } else {

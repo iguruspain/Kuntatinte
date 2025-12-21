@@ -27,22 +27,31 @@ Controls.Dialog {
     property var backend: null
     // Optional busy indicator from parent (passed as `busyIndicator: busyIndicator`)
     property var busyIndicator: null
+    // Palette mode from parent
+    property string paletteMode: "dark"
+    // Selected image path from parent
+    property string selectedImagePath: ""
+    // Selected color from parent
+    property string selectedColor: ""
 
     contentItem: ColumnLayout {
         Layout.margins: Kirigami.Units.largeSpacing
         spacing: Kirigami.Units.smallSpacing
 
-        Controls.Label { text: "Choose palette mode to generate:" }
+        Controls.Label {
+            text: "Generate autogen for current palette mode: <b><font color='" + (paletteMode === "dark" ? "#ff6b6b" : "#4ecdc4") + "'>" + paletteMode.toUpperCase() + "</font></b>"
+            textFormat: Text.RichText
+        }
 
         RowLayout {
             spacing: Kirigami.Units.smallSpacing
 
             Controls.Button {
-                text: "Dark"
+                text: "Generate"
                 onClicked: {
                     if (busyIndicator) busyIndicator.visible = true
                     if (backend) {
-                        var res = backend.runAutogen("dark")
+                        var res = backend.runAutogen(paletteMode, selectedImagePath, selectedColor)
                         try {
                             var obj = JSON.parse(res)
                             rootDialog.autogenText = JSON.stringify(obj, null, 2)
@@ -59,31 +68,6 @@ Controls.Dialog {
                     if (busyIndicator) busyIndicator.visible = false
                 }
             }
-
-            Controls.Button {
-                text: "Light"
-                onClicked: {
-                    if (busyIndicator) busyIndicator.visible = true
-                    if (backend) {
-                        var res = backend.runAutogen("light")
-                        try {
-                            var obj = JSON.parse(res)
-                            rootDialog.autogenText = JSON.stringify(obj, null, 2)
-                            rootDialog.autogenStatus = obj.status || ""
-                            rootDialog.autogenPaletteMode = obj.palette_mode || ""
-                            rootDialog.autogenGenerated = Object.keys(obj.generated || {})
-                        } catch (e) {
-                            rootDialog.autogenText = (res === undefined || res === null) ? "" : String(res)
-                            rootDialog.autogenStatus = ""
-                            rootDialog.autogenPaletteMode = ""
-                            rootDialog.autogenGenerated = []
-                        }
-                    }
-                    if (busyIndicator) busyIndicator.visible = false
-                }
-            }
-
-            Controls.Button { text: "Cancel"; onClicked: rootDialog.close() }
         }
 
         Controls.Label { text: "Autogen output (preview):" }
@@ -95,14 +79,16 @@ Controls.Dialog {
             Controls.Label { text: "Generated: " + (rootDialog.autogenGenerated.length > 0 ? rootDialog.autogenGenerated.join(", ") : "-") }
         }
 
-        Controls.TextArea {
-            id: autogenOutput
-            readOnly: true
-            wrapMode: Text.WrapAnywhere
-            text: rootDialog.autogenText
-            font.family: "monospace"
-            Layout.preferredHeight: 220
+        Controls.ScrollView {
             Layout.fillWidth: true
+            Layout.preferredHeight: 220
+            Controls.TextArea {
+                id: autogenOutput
+                readOnly: true
+                wrapMode: Text.WrapAnywhere
+                text: rootDialog.autogenText
+                font.family: "monospace"
+            }
         }
 
         RowLayout {
@@ -122,7 +108,27 @@ Controls.Dialog {
                 }
             }
 
-            Controls.Button { text: "Close"; onClicked: rootDialog.close() }
+            Controls.Button {
+                text: "Export"
+                enabled: rootDialog.autogenText.length > 0
+                onClicked: {
+                    if (busyIndicator) busyIndicator.visible = true
+                    if (backend) {
+                        var ok = backend.applyAutogenColors(rootDialog.autogenText)
+                        if (ok) {
+                            root.showPassiveNotification("Autogen colors exported to settings")
+                        } else {
+                            root.showPassiveNotification("Error exporting autogen colors")
+                        }
+                    }
+                    if (busyIndicator) busyIndicator.visible = false
+                }
+            }
+
+            Controls.Button {
+                text: "Cancel"
+                onClicked: rootDialog.close()
+            }
         }
     }
 }

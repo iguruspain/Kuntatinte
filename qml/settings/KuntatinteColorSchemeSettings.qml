@@ -20,14 +20,107 @@ Controls.ScrollView {
     //   -1: ImageMagick accent (default if available)
     //   -100 to -199: Material You source colors
     //   >= 0: Palette colors
-    property int primaryColorIndex: root.extractedAccent && root.extractedAccent !== "" 
-        ? -1 
-        : (root.sourceColors && root.sourceColors.length > 0 ? -100 : 0)
-    property int toolbarOpacity: 100
-    property var previewData: ({})
+    property int primaryColorIndex: 0
+    
+    // Track if primaryColorIndex has been initialized
+    property bool primaryColorIndexInitialized: false
+    
+    // UI state properties
+    property var kuntatinteSchemesList: []
+    property var previewData: null
     property bool generateExpanded: true
     property bool editExpanded: false
-    property var kuntatinteSchemesList: []
+    
+    // Toolbar opacity for preview
+    property int toolbarOpacity: 100
+    
+    function initializePrimaryColorIndex() {
+        if (primaryColorIndexInitialized) return
+        
+        var calcIndex = calculatePrimaryColorIndex()
+        kdeSettings2.primaryColorIndex = calcIndex
+        
+        var savedPrimaryIndex = backend.getConfigValue("color_scheme", "primary_index", null)
+        
+        var shouldUseCalculated = false
+        
+        if (savedPrimaryIndex !== null) {
+            // Validate saved index: check if it points to a valid color
+            var isValid = false
+            if (savedPrimaryIndex === -1 && root.extractedAccent && root.extractedAccent !== "") {
+                isValid = true
+            } else if (savedPrimaryIndex <= -100) {
+                var sourceIdx = -100 - savedPrimaryIndex
+                isValid = root.sourceColors && sourceIdx < root.sourceColors.length
+            } else if (savedPrimaryIndex >= 0) {
+                isValid = root.extractedColors && savedPrimaryIndex < root.extractedColors.length
+            }
+            
+            // Special case: if saved index is 0 (old default) and we have Material You colors,
+            // prefer Material You over the old palette default
+            if (savedPrimaryIndex === 0 && root.sourceColors && root.sourceColors.length > 0) {
+                shouldUseCalculated = true
+            } else if (isValid) {
+                kdeSettings2.primaryColorIndex = savedPrimaryIndex
+            } else {
+                shouldUseCalculated = true
+            }
+        } else {
+            shouldUseCalculated = true
+        }
+        
+        if (shouldUseCalculated) {
+            kdeSettings2.primaryColorIndex = calcIndex
+        }
+        
+        primaryColorIndexInitialized = true
+    }
+    
+    function calculatePrimaryColorIndex() {
+        // First, try to use default fallback logic (prioritize Material You over others)
+        var fallbackIndex = -1
+        if (root.sourceColors && root.sourceColors.length > 0) {
+            fallbackIndex = -100
+        } else if (root.extractedAccent && root.extractedAccent !== "") {
+            fallbackIndex = -1
+        } else if (root.extractedColors && root.extractedColors.length > 0) {
+            fallbackIndex = 0
+        }
+        
+        // If we have a valid fallback and selectedColor matches it, use the fallback
+        if (fallbackIndex !== -1 && root.selectedColor) {
+            if (fallbackIndex === -1 && root.selectedColor === root.extractedAccent) return -1;
+            if (fallbackIndex <= -100) {
+                var sourceIdx = -100 - fallbackIndex
+                if (root.sourceColors && sourceIdx < root.sourceColors.length && root.sourceColors[sourceIdx] === root.selectedColor) {
+                    return fallbackIndex
+                }
+            }
+            if (fallbackIndex >= 0 && root.extractedColors && fallbackIndex < root.extractedColors.length && root.extractedColors[fallbackIndex] === root.selectedColor) {
+                return fallbackIndex
+            }
+        }
+        
+        // If fallback is valid, use it
+        if (fallbackIndex !== -1) return fallbackIndex
+        
+        // Otherwise, try to match selectedColor with available colors
+        if (root.selectedColor) {
+            if (root.selectedColor === root.extractedAccent) return -1;
+            var idx = root.sourceColors ? root.sourceColors.indexOf(root.selectedColor) : -1;
+            if (idx >= 0) return -100 - idx;
+            idx = root.extractedColors ? root.extractedColors.indexOf(root.selectedColor) : -1;
+            if (idx >= 0) return idx;
+        }
+        
+        // Final fallback
+        return 0;
+    }
+    
+    function updatePrimaryColorIndex() {
+        // Not used anymore, using binding
+    }
+    
     property string editSchemeName: ""
     property var editSchemeData: ({})
     property var editSchemeSections: []
@@ -99,23 +192,23 @@ Controls.ScrollView {
     Connections {
         target: root
         function onExtractedColorsChanged() {
-            if (root.sourceColors && root.sourceColors.length > 0) {
-                kdeSettings2.primaryColorIndex = -100
-            } else if (root.extractedColors.length > 0) {
-                kdeSettings2.primaryColorIndex = 0
-            }
             updatePreview()
         }
         function onSourceColorsChanged() {
-            if (root.sourceColors && root.sourceColors.length > 0) {
-                kdeSettings2.primaryColorIndex = -100
-                updatePreview()
+            if (!primaryColorIndexInitialized && (root.sourceColors.length > 0 || root.extractedColors.length > 0 || (root.extractedAccent && root.extractedAccent !== ""))) {
+                initializePrimaryColorIndex()
             }
+            updatePreview()
         }
     }
     
     // Initial preview
     Component.onCompleted: {
+        // Check if we already have colors available for initialization
+        if (root.sourceColors.length > 0 || root.extractedColors.length > 0 || (root.extractedAccent && root.extractedAccent !== "")) {
+            initializePrimaryColorIndex()
+        }
+        
         if (root.extractedColors.length > 0 || (root.sourceColors && root.sourceColors.length > 0)) {
             updatePreview()
         }
@@ -364,6 +457,65 @@ Controls.ScrollView {
                 }
             }
 
+            // Extracted Palette Colors section
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
+                visible: root.extractedColors && root.extractedColors.length > 0
+
+                Controls.Label {
+                    text: "Palette Colors:"
+                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                    color: Kirigami.Theme.disabledTextColor
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 8
+                    rowSpacing: 4
+                    columnSpacing: 4
+
+                    Repeater {
+                        model: root.extractedColors
+
+                        Rectangle {
+                            property string myColor: modelData
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: 28
+                            radius: 4
+                            color: myColor
+                            border.width: (kdeSettings2.primaryColorIndex === index) ? 2 : 1
+                            border.color: (kdeSettings2.primaryColorIndex === index)
+                                ? Kirigami.Theme.highlightColor 
+                                : Kirigami.Theme.disabledTextColor
+
+                            Kirigami.Icon {
+                                anchors.centerIn: parent
+                                width: 14
+                                height: 14
+                                source: "dialog-ok"
+                                color: kdeSettings2.getContrastTextColor(parent.myColor)
+                                visible: kdeSettings2.primaryColorIndex === index
+                            }
+
+                            Controls.ToolTip.text: myColor
+                            Controls.ToolTip.visible: paletteMouseArea.containsMouse
+
+                            MouseArea {
+                                id: paletteMouseArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    kdeSettings2.primaryColorIndex = index
+                                    updatePreview()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Show message if no colors available
             Controls.Label {
                 visible: root.extractedColors.length === 0 && root.sourceColorsCount === 0 && !root.extractedAccent
@@ -461,10 +613,10 @@ Controls.ScrollView {
                 id: darkPreview
                 Layout.fillWidth: true
                 Layout.preferredHeight: 120
-                color: previewData && previewData.dark && previewData.dark.window_bg ? previewData.dark.window_bg : "#1a1a1a"
+                color: previewData && previewData.dark.window_bg ? previewData.dark.window_bg : "#1a1a1a"
                 radius: 8
                 border.width: 1
-                border.color: previewData && previewData.dark && previewData.dark.button_bg ? previewData.dark.button_bg : "#333333"
+                border.color: previewData && previewData.dark.button_bg ? previewData.dark.button_bg : "#333333"
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -474,7 +626,7 @@ Controls.ScrollView {
                     Controls.Label {
                         text: "Kuntatinte Dark"
                         font.bold: true
-                        color: previewData && previewData.dark && previewData.dark.window_fg ? previewData.dark.window_fg : "#ffffff"
+                        color: previewData && previewData.dark.window_fg ? previewData.dark.window_fg : "#ffffff"
                         font.pixelSize: 12
                     }
 
@@ -482,7 +634,7 @@ Controls.ScrollView {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        color: previewData && previewData.dark && previewData.dark.window_bg ? previewData.dark.window_bg : "#2a2a2a"
+                        color: previewData && previewData.dark.window_bg ? previewData.dark.window_bg : "#2a2a2a"
                         radius: 4
 
                         ColumnLayout {
@@ -494,13 +646,13 @@ Controls.ScrollView {
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 20
-                                color: previewData.dark && previewData.dark.button_bg ? previewData.dark.button_bg : "#333333"
+                                color: previewData && previewData.dark.button_bg ? previewData.dark.button_bg : "#333333"
                                 radius: 2
 
                                 Controls.Label {
                                     anchors.centerIn: parent
                                     text: "Window Title"
-                                    color: previewData.dark && previewData.dark.button_fg ? previewData.dark.button_fg : "#ffffff"
+                                    color: previewData && previewData.dark.button_fg ? previewData.dark.button_fg : "#ffffff"
                                     font.pixelSize: 10
                                 }
                             }
@@ -515,13 +667,13 @@ Controls.ScrollView {
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 40
-                                    color: previewData.dark && previewData.dark.view_bg ? previewData.dark.view_bg : "#3a3a3a"
+                                    color: previewData && previewData.dark.view_bg ? previewData.dark.view_bg : "#3a3a3a"
                                     radius: 2
 
                                     Controls.Label {
                                         anchors.centerIn: parent
                                         text: "Content text"
-                                        color: previewData.dark && previewData.dark.view_fg ? previewData.dark.view_fg : "#cccccc"
+                                        color: previewData && previewData.dark.view_fg ? previewData.dark.view_fg : "#cccccc"
                                         font.pixelSize: 9
                                     }
                                 }
@@ -536,13 +688,13 @@ Controls.ScrollView {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        color: previewData.dark && previewData.dark.button_bg ? previewData.dark.button_bg : "#8899aa"
+                                        color: previewData && previewData.dark.button_bg ? previewData.dark.button_bg : "#8899aa"
                                         radius: 2
 
                                         Controls.Label {
                                             anchors.centerIn: parent
                                             text: "OK"
-                                            color: previewData.dark && previewData.dark.button_fg ? previewData.dark.button_fg : "#000000"
+                                            color: previewData && previewData.dark.button_fg ? previewData.dark.button_fg : "#000000"
                                             font.pixelSize: 6
                                             font.bold: true
                                         }
@@ -552,13 +704,13 @@ Controls.ScrollView {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        color: previewData.dark && previewData.dark.selection_bg ? previewData.dark.selection_bg : "#4a90e2"
+                                        color: previewData && previewData.dark.selection_bg ? previewData.dark.selection_bg : "#4a90e2"
                                         radius: 2
 
                                         Controls.Label {
                                             anchors.centerIn: parent
                                             text: "Save"
-                                            color: previewData.dark && previewData.dark.selection_fg ? previewData.dark.selection_fg : "#ffffff"
+                                            color: previewData && previewData.dark.selection_fg ? previewData.dark.selection_fg : "#ffffff"
                                             font.pixelSize: 6
                                             font.bold: true
                                         }
@@ -575,10 +727,10 @@ Controls.ScrollView {
                 id: lightPreview
                 Layout.fillWidth: true
                 Layout.preferredHeight: 120
-                color: previewData && previewData.light && previewData.light.window_bg ? previewData.light.window_bg : "#f5f5f5"
+                color: previewData && previewData.light.window_bg ? previewData.light.window_bg : "#f5f5f5"
                 radius: 8
                 border.width: 1
-                border.color: previewData && previewData.light && previewData.light.button_bg ? previewData.light.button_bg : "#cccccc"
+                border.color: previewData && previewData.light.button_bg ? previewData.light.button_bg : "#cccccc"
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -588,7 +740,7 @@ Controls.ScrollView {
                     Controls.Label {
                         text: "Kuntatinte Light"
                         font.bold: true
-                        color: previewData && previewData.light && previewData.light.window_fg ? previewData.light.window_fg : "#000000"
+                        color: previewData && previewData.light.window_fg ? previewData.light.window_fg : "#000000"
                         font.pixelSize: 12
                     }
 
@@ -596,7 +748,7 @@ Controls.ScrollView {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        color: previewData.light && previewData.light.window_bg ? previewData.light.window_bg : "#e8e8e8"
+                        color: previewData && previewData.light.window_bg ? previewData.light.window_bg : "#e8e8e8"
                         radius: 4
 
                         ColumnLayout {
@@ -608,13 +760,13 @@ Controls.ScrollView {
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 20
-                                color: previewData.light && previewData.light.button_bg ? previewData.light.button_bg : "#d0d0d0"
+                                color: previewData && previewData.light.button_bg ? previewData.light.button_bg : "#d0d0d0"
                                 radius: 2
 
                                 Controls.Label {
                                     anchors.centerIn: parent
                                     text: "Window Title"
-                                    color: previewData.light && previewData.light.button_fg ? previewData.light.button_fg : "#000000"
+                                    color: previewData && previewData.light.button_fg ? previewData.light.button_fg : "#000000"
                                     font.pixelSize: 10
                                 }
                             }
@@ -629,13 +781,13 @@ Controls.ScrollView {
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 40
-                                    color: previewData.light && previewData.light.view_bg ? previewData.light.view_bg : "#c8c8c8"
+                                    color: previewData && previewData.light.view_bg ? previewData.light.view_bg : "#c8c8c8"
                                     radius: 2
 
                                     Controls.Label {
                                         anchors.centerIn: parent
                                         text: "Content text"
-                                        color: previewData.light && previewData.light.view_fg ? previewData.light.view_fg : "#333333"
+                                        color: previewData && previewData.light.view_fg ? previewData.light.view_fg : "#333333"
                                         font.pixelSize: 9
                                     }
                                 }
@@ -650,13 +802,13 @@ Controls.ScrollView {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        color: previewData.light && previewData.light.button_bg ? previewData.light.button_bg : "#667788"
+                                        color: previewData && previewData.light.button_bg ? previewData.light.button_bg : "#667788"
                                         radius: 2
 
                                         Controls.Label {
                                             anchors.centerIn: parent
                                             text: "OK"
-                                            color: previewData.light && previewData.light.button_fg ? previewData.light.button_fg : "#ffffff"
+                                            color: previewData && previewData.light.button_fg ? previewData.light.button_fg : "#ffffff"
                                             font.pixelSize: 6
                                             font.bold: true
                                         }
@@ -666,13 +818,13 @@ Controls.ScrollView {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        color: previewData.light && previewData.light.selection_bg ? previewData.light.selection_bg : "#4a90e2"
+                                        color: previewData && previewData.light.selection_bg ? previewData.light.selection_bg : "#4a90e2"
                                         radius: 2
 
                                         Controls.Label {
                                             anchors.centerIn: parent
                                             text: "Save"
-                                            color: previewData.light && previewData.light.selection_fg ? previewData.light.selection_fg : "#ffffff"
+                                            color: previewData && previewData.light.selection_fg ? previewData.light.selection_fg : "#ffffff"
                                             font.pixelSize: 6
                                             font.bold: true
                                         }

@@ -10,6 +10,45 @@ ColumnLayout {
     id: ulauncherSettings
     spacing: Kirigami.Units.smallSpacing
     
+    Connections {
+        target: backend
+        function onConfigChanged(section, key, value) {
+            if (section === "ulauncher") {
+                if (key === "background_color") {
+                    root.ulauncherBgColor = value
+                } else if (key === "border_color") {
+                    root.ulauncherBorderColor = value
+                } else if (key === "prefs_background") {
+                    root.ulauncherPrefsBackground = value
+                } else if (key === "input_color") {
+                    root.ulauncherInputColor = value
+                } else if (key === "selected_bg_color") {
+                    root.ulauncherSelectedBgColor = value
+                } else if (key === "selected_fg_color") {
+                    root.ulauncherSelectedFgColor = value
+                } else if (key === "item_name") {
+                    root.ulauncherItemName = value
+                } else if (key === "item_text") {
+                    root.ulauncherItemText = value
+                } else if (key === "item_box_selected") {
+                    root.ulauncherItemBoxSelected = value
+                } else if (key === "item_name_selected") {
+                    root.ulauncherItemNameSelected = value
+                } else if (key === "item_text_selected") {
+                    root.ulauncherItemTextSelected = value
+                } else if (key === "shortcut_color") {
+                    root.ulauncherShortcutColor = value
+                } else if (key === "shortcut_color_selected") {
+                    root.ulauncherShortcutColorSel = value
+                } else if (key === "when_selected") {
+                    root.ulauncherWhenSelected = value
+                } else if (key === "when_not_selected") {
+                    root.ulauncherWhenNotSelected = value
+                }
+            }
+        }
+    }
+    
     // Action buttons row
     RowLayout {
         Layout.fillWidth: true

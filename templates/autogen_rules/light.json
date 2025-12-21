@@ -5,6 +5,12 @@
       "variable_key": "PrimaryColor"
     }
   },
+  "OpenRGB": {
+    "openrgbAccent": {
+      "extract_method": "variable",
+      "variable_key": "PrimaryColor"
+    }
+  },
   "Starship": {
     "selectedAccent": {
       "extract_method": "variable",

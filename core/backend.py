@@ -111,6 +111,8 @@ class PaletteBackend(QObject):
     extractionError = pyqtSignal(str)
     imageListChanged = pyqtSignal()
     systemImageListChanged = pyqtSignal()
+    configChanged = pyqtSignal(str, str, 'QVariant')  # section, key, value
+    primaryIndexChanged = pyqtSignal(int)
     
     def __init__(self, parent: Optional[QObject] = None) -> None:
         """Initialize the palette backend.
@@ -134,6 +136,11 @@ class PaletteBackend(QObject):
         self._extract_in_progress: set[str] = set()
         # Remember last emitted JSON for source colors to avoid duplicate signals
         self._last_emitted_source_json: dict[str, str] = {}
+        # Store current palette for autogen
+        self._current_palette: list[str] = []
+        # Store current primary settings for autogen
+        self._current_primary_index: int = 0
+        self._current_accent_override: str = ""
         
         # Load default wallpapers folder from config
         if config.wallpapers_folder and config.wallpapers_folder.exists():
@@ -297,6 +304,8 @@ class PaletteBackend(QObject):
                 
                 # Convert to list of hex strings
                 hex_colors = self._normalize_colors_to_hex(colors)
+                # Store current palette
+                self._current_palette = hex_colors
                 # Emit signal from main thread
                 self.colorsExtracted.emit(hex_colors)
             except Exception as e:
@@ -451,18 +460,43 @@ class PaletteBackend(QObject):
         thread = threading.Thread(target=_worker, daemon=True)
         thread.start()
 
-    @pyqtSlot(str, result='QString')
-    def runAutogen(self, mode: str) -> str:
-        """Run autogen in test mode with a palette mode ("dark"/"light").
+    @pyqtSlot(str, str, str, result='QString')
+    def runAutogen(self, mode: str, image_path: str = "", selected_color: str = "") -> str:
+        """Run autogen in production mode with a palette mode ("dark"/"light").
 
         Args:
             mode: Palette mode string from QML (e.g., "dark" or "light").
+            image_path: Path to the selected wallpaper image.
+            selected_color: Currently selected accent color from the UI.
 
         Returns:
             JSON string with generated data or error.
         """
         try:
-            result = autogen.run_autogen(test_mode=True, palette_mode=mode)
+            # If no current palette, try to extract from provided image_path
+            if not self._current_palette and image_path:
+                logger.info(f"No current palette, extracting from wallpaper: {image_path}")
+                # Extract colors from current wallpaper
+                colors = extract_colors_from_wallpaper(image_path, mode)
+                if colors:
+                    hex_colors = self._normalize_colors_to_hex(colors)
+                    self._current_palette = hex_colors
+                    logger.info(f"Extracted palette: {hex_colors}")
+            
+            # Use selected_color as accent_override if provided
+            accent_override = selected_color if selected_color else self._current_accent_override
+            
+            logger.info(f"runAutogen called with mode={mode}, image_path={image_path}, selected_color={selected_color}, current_palette={self._current_palette}, primary_index={self._current_primary_index}, accent_override={accent_override}")
+            result = autogen.run_autogen(test_mode=False, palette_mode=mode, palette=self._current_palette, primary_index=self._current_primary_index, accent_override=accent_override, primary_color=selected_color)
+            # Parse result to get primary_index and update current settings
+            try:
+                result_data = json.loads(result)
+                if result_data.get("status") == "ok":
+                    primary_index = result_data.get("primary_index", self._current_primary_index)
+                    self._current_primary_index = primary_index
+                    self.primaryIndexChanged.emit(primary_index)
+            except json.JSONDecodeError:
+                pass
             return result if isinstance(result, str) else json.dumps(result)
         except Exception as e:
             return json.dumps({"status": "error", "message": str(e)})
@@ -1140,6 +1174,9 @@ class PaletteBackend(QObject):
             )
         if success:
             logger.info(f"Kuntatinte schemes generated: {message}")
+            # Store the primary settings for autogen
+            self._current_primary_index = primary_index
+            self._current_accent_override = accent_override
             return ""
         else:
             logger.error(f"Error generating Kuntatinte schemes: {message}")
@@ -1193,6 +1230,125 @@ class PaletteBackend(QObject):
             return message
         return ""
 
+    @pyqtSlot(str, result=bool)
+    def saveAutogenDump(self, autogen_json: str) -> bool:
+        """Save autogen JSON dump to a temp file.
+        
+        Args:
+            autogen_json: JSON string to save
+            
+        Returns:
+            True on success, False on error
+        """
+        try:
+            import tempfile
+            import os
+            
+            # Create temp file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(autogen_json)
+                temp_path = f.name
+            
+            logger.info(f"Autogen dump saved to: {temp_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving autogen dump: {e}")
+            return False
+
+    @pyqtSlot(str, result=bool)
+    def applyAutogenColors(self, autogen_json: str) -> bool:
+        """Apply autogen colors to application settings.
+        
+        Args:
+            autogen_json: JSON string from autogen generation
+            
+        Returns:
+            True on success, False on error
+        """
+        try:
+            data = json.loads(autogen_json)
+            primary_index = data.get("primary_index")
+            if primary_index is not None:
+                self.setConfigValue("color_scheme", "primary_index", primary_index)
+            generated = data.get("generated", {})
+            
+            # Apply Fastfetch colors
+            if "Fastfetch" in generated:
+                ff = generated["Fastfetch"]
+                if "fastfetchAccent" in ff:
+                    accent = ff["fastfetchAccent"]["color"]
+                    # Set fastfetch accent in config
+                    self.setConfigValue("fastfetch", "accent", accent)
+            
+            # Apply Starship colors
+            if "Starship" in generated:
+                ss = generated["Starship"]
+                accent = ss.get("selectedAccent", {}).get("color", "")
+                accent_text = ss.get("selectedAccentText", {}).get("color", "")
+                dir_fg = ss.get("selectedDirFg", {}).get("color", "")
+                dir_bg = ss.get("selectedDirBg", {}).get("color", "")
+                dir_text = ss.get("selectedDirText", {}).get("color", "")
+                git_fg = ss.get("selectedGitFg", {}).get("color", "")
+                git_bg = ss.get("selectedGitBg", {}).get("color", "")
+                git_text = ss.get("selectedGitText", {}).get("color", "")
+                other_fg = ss.get("selectedOtherFg", {}).get("color", "")
+                other_bg = ss.get("selectedOtherBg", {}).get("color", "")
+                other_text = ss.get("selectedOtherText", {}).get("color", "")
+                
+                # Save to config instead of applying directly
+                self.setConfigValue("starship", "accent", accent)
+                self.setConfigValue("starship", "accent_text", accent_text)
+                self.setConfigValue("starship", "dir_fg", dir_fg)
+                self.setConfigValue("starship", "dir_bg", dir_bg)
+                self.setConfigValue("starship", "dir_text", dir_text)
+                self.setConfigValue("starship", "git_fg", git_fg)
+                self.setConfigValue("starship", "git_bg", git_bg)
+                self.setConfigValue("starship", "git_text", git_text)
+                self.setConfigValue("starship", "other_fg", other_fg)
+                self.setConfigValue("starship", "other_bg", other_bg)
+                self.setConfigValue("starship", "other_text", other_text)
+            
+            # Apply Ulauncher colors
+            if "Ulauncher" in generated:
+                ul = generated["Ulauncher"]
+                # Map ulauncher properties to config keys
+                mappings = {
+                    "ulauncherBgColor": "background_color",
+                    "ulauncherBorderColor": "border_color", 
+                    "ulauncherPrefsBackground": "prefs_background",
+                    "ulauncherInputColor": "input_color",
+                    "ulauncherSelectedBgColor": "selected_bg_color",
+                    "ulauncherSelectedFgColor": "selected_fg_color",
+                    "ulauncherItemName": "item_name",
+                    "ulauncherItemText": "item_text",
+                    "ulauncherItemBoxSelected": "item_box_selected",
+                    "ulauncherItemNameSelected": "item_name_selected",
+                    "ulauncherItemTextSelected": "item_text_selected",
+                    "ulauncherShortcutColor": "shortcut_color",
+                    "ulauncherShortcutColorSel": "shortcut_color_selected",
+                    "ulauncherWhenSelected": "when_selected",
+                    "ulauncherWhenNotSelected": "when_not_selected"
+                }
+                
+                for prop, config_key in mappings.items():
+                    if prop in ul:
+                        color = ul[prop]["color"]
+                        self.setConfigValue("ulauncher", config_key, color)
+            
+            # Apply OpenRGB if available
+            if "OpenRGB" in generated:
+                rgb = generated["OpenRGB"]
+                if "openrgbAccent" in rgb:
+                    accent = rgb["openrgbAccent"]["color"]
+                    # Save to config instead of applying directly
+                    self.setConfigValue("openrgb", "accent", accent)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error applying autogen colors: {e}")
+            return False
+
     @pyqtSlot(str, str, 'QVariant', result='QVariant')
     def getConfigValue(self, section: str, key: str, default=None):
         return config.get(section, key, default)
@@ -1201,4 +1357,5 @@ class PaletteBackend(QObject):
     def setConfigValue(self, section: str, key: str, value):
         config.set(section, key, value)
         config._save()
+        self.configChanged.emit(section, key, value)
 

@@ -353,14 +353,16 @@ def get_current_colors() -> Dict[str, Any]:
     """Get current colors from applied theme.
     
     Returns:
-        Dictionary with color values and opacities, or empty dict if not found
+        Dictionary with color values and opacities, or default colors if not found
     """
     output_dir = _get_output_dir()
     css_path = output_dir / 'theme.css'
     manifest_path = output_dir / 'manifest.json'
     
     if not css_path.exists():
-        return {}
+        # Return default colors if no custom theme is applied
+        logger.info("No custom Ulauncher theme found, returning default colors")
+        return DEFAULT_COLORS.copy()
     
     colors: Dict[str, Any] = {}
     
@@ -401,10 +403,16 @@ def get_current_colors() -> Dict[str, Any]:
             if 'when_not_selected' in hl_colors:
                 colors['when_not_selected'] = normalize_color(hl_colors['when_not_selected']) or ''
         
+        # If we couldn't parse some colors, fill with defaults
+        for key in COLOR_KEYS:
+            if key not in colors:
+                colors[key] = DEFAULT_COLORS.get(key, '')
+        
         return colors
     except Exception as e:
         logger.error(f"Error loading Ulauncher colors: {e}")
-        return {}
+        # Return defaults on error
+        return DEFAULT_COLORS.copy()
 
 
 def has_backup() -> bool:

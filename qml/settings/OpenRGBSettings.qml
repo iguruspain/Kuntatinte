@@ -10,6 +10,16 @@ ColumnLayout {
     id: openrgbSettings
     spacing: Kirigami.Units.smallSpacing
     
+    Connections {
+        target: backend
+        function onConfigChanged(section, key, value) {
+            if (section === "openrgb" && key === "accent") {
+                root.openrgbAccent = value.replace("#", "")
+                root.openrgbAccentSource = value ? "config" : ""
+            }
+        }
+    }
+    
     // Action buttons row
     RowLayout {
         Layout.fillWidth: true

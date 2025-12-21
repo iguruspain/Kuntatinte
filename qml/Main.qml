@@ -27,6 +27,7 @@ Kirigami.ApplicationWindow {
     // Set initial width and load KDE colors
     Component.onCompleted: {
         loadKdeColors()
+        loadConfigColors()
     }
     
     // =========================================================================
@@ -67,6 +68,29 @@ Kirigami.ApplicationWindow {
         }
     }
     property int selectedSwatchIndex: -1
+    onSelectedSwatchIndexChanged: {
+        // Update selectedColor based on the selected swatch
+        if (selectedSwatchIndex === -2) {
+            // Extracted accent
+            selectedColor = extractedAccent || ""
+        } else if (selectedSwatchIndex === -1) {
+            // No selection
+            selectedColor = ""
+        } else if (selectedSwatchIndex >= 0 && selectedSwatchIndex < extractedColors.length) {
+            // Palette color
+            selectedColor = extractedColors[selectedSwatchIndex]
+        } else if (selectedSwatchIndex <= -100) {
+            // Source color (Material You)
+            var sourceIndex = -100 - selectedSwatchIndex
+            if (sourceColors && sourceIndex < sourceColors.length) {
+                selectedColor = sourceColors[sourceIndex]
+            } else {
+                selectedColor = ""
+            }
+        } else {
+            selectedColor = ""
+        }
+    }
     property string extractionMethod: "ImageMagick"  // "ImageMagick", "Material You", "Pywal"
     property string paletteMode: "dark"  // "light", "dark"
     
@@ -172,20 +196,10 @@ Kirigami.ApplicationWindow {
     // =========================================================================
     
     // Currently selected color (from palette, extracted accent, or source colors)
-    readonly property string selectedColor: {
-        if (selectedSwatchIndex === -2 && extractedAccent !== "") {
-            // ImageMagick recommended accent
-            return extractedAccent
-        } else if (selectedSwatchIndex <= -100) {
-            // Material You source color: -100 = index 0, -101 = index 1, etc.
-            var sourceIndex = -100 - selectedSwatchIndex
-            if (sourceIndex < sourceColorsCount) {
-                return getSourceColor(sourceIndex)
-            }
-        } else if (selectedSwatchIndex >= 0 && selectedSwatchIndex < extractedColors.length) {
-            return extractedColors[selectedSwatchIndex]
-        }
-        return ""
+    property string selectedColor: ""
+    
+    onSelectedColorChanged: {
+        // Force re-evaluation of bindings that depend on selectedColor
     }
     
     // Indicates if there is a selected color (palette or accent)
@@ -309,6 +323,77 @@ Kirigami.ApplicationWindow {
         
         // Load colors from base scheme
         loadKdeColorsFromScheme(kdeBaseScheme)
+    }
+    
+    function loadConfigColors() {
+        // Load saved colors from config
+        root.selectedAccent = backend.getConfigValue("starship", "accent", "")
+        root.selectedAccentText = backend.getConfigValue("starship", "accent_text", "")
+        root.selectedDirFg = backend.getConfigValue("starship", "dir_fg", "")
+        root.selectedDirBg = backend.getConfigValue("starship", "dir_bg", "")
+        root.selectedDirText = backend.getConfigValue("starship", "dir_text", "")
+        root.selectedGitFg = backend.getConfigValue("starship", "git_fg", "")
+        root.selectedGitBg = backend.getConfigValue("starship", "git_bg", "")
+        root.selectedGitText = backend.getConfigValue("starship", "git_text", "")
+        root.selectedOtherFg = backend.getConfigValue("starship", "other_fg", "")
+        root.selectedOtherBg = backend.getConfigValue("starship", "other_bg", "")
+        root.selectedOtherText = backend.getConfigValue("starship", "other_text", "")
+        
+        // Set sources to "config" if values exist
+        root.accentSource = root.selectedAccent ? "config" : ""
+        root.accentTextSource = root.selectedAccentText ? "config" : ""
+        root.dirFgSource = root.selectedDirFg ? "config" : ""
+        root.dirBgSource = root.selectedDirBg ? "config" : ""
+        root.dirTextSource = root.selectedDirText ? "config" : ""
+        root.gitFgSource = root.selectedGitFg ? "config" : ""
+        root.gitBgSource = root.selectedGitBg ? "config" : ""
+        root.gitTextSource = root.selectedGitText ? "config" : ""
+        root.otherFgSource = root.selectedOtherFg ? "config" : ""
+        root.otherBgSource = root.selectedOtherBg ? "config" : ""
+        root.otherTextSource = root.selectedOtherText ? "config" : ""
+        
+        // Fastfetch
+        root.fastfetchAccent = backend.getConfigValue("fastfetch", "accent", "")
+        root.fastfetchAccentSource = root.fastfetchAccent ? "config" : ""
+        
+        // Ulauncher
+        root.ulauncherBgColor = backend.getConfigValue("ulauncher", "background_color", "")
+        root.ulauncherBorderColor = backend.getConfigValue("ulauncher", "border_color", "")
+        root.ulauncherPrefsBackground = backend.getConfigValue("ulauncher", "prefs_background", "")
+        root.ulauncherInputColor = backend.getConfigValue("ulauncher", "input_color", "")
+        root.ulauncherSelectedBgColor = backend.getConfigValue("ulauncher", "selected_bg_color", "")
+        root.ulauncherSelectedFgColor = backend.getConfigValue("ulauncher", "selected_fg_color", "")
+        root.ulauncherItemName = backend.getConfigValue("ulauncher", "item_name", "")
+        root.ulauncherItemText = backend.getConfigValue("ulauncher", "item_text", "")
+        root.ulauncherItemBoxSelected = backend.getConfigValue("ulauncher", "item_box_selected", "")
+        root.ulauncherItemNameSelected = backend.getConfigValue("ulauncher", "item_name_selected", "")
+        root.ulauncherItemTextSelected = backend.getConfigValue("ulauncher", "item_text_selected", "")
+        root.ulauncherShortcutColor = backend.getConfigValue("ulauncher", "shortcut_color", "")
+        root.ulauncherShortcutColorSel = backend.getConfigValue("ulauncher", "shortcut_color_selected", "")
+        root.ulauncherWhenSelected = backend.getConfigValue("ulauncher", "when_selected", "")
+        root.ulauncherWhenNotSelected = backend.getConfigValue("ulauncher", "when_not_selected", "")
+        
+        // Set ulauncher sources
+        root.ulauncherBgColorSource = root.ulauncherBgColor ? "config" : ""
+        root.ulauncherBorderColorSource = root.ulauncherBorderColor ? "config" : ""
+        root.ulauncherPrefsBackgroundSource = root.ulauncherPrefsBackground ? "config" : ""
+        root.ulauncherInputColorSource = root.ulauncherInputColor ? "config" : ""
+        root.ulauncherSelectedBgColorSource = root.ulauncherSelectedBgColor ? "config" : ""
+        root.ulauncherSelectedFgColorSource = root.ulauncherSelectedFgColor ? "config" : ""
+        root.ulauncherItemNameSource = root.ulauncherItemName ? "config" : ""
+        root.ulauncherItemTextSource = root.ulauncherItemText ? "config" : ""
+        root.ulauncherItemBoxSelectedSource = root.ulauncherItemBoxSelected ? "config" : ""
+        root.ulauncherItemNameSelectedSource = root.ulauncherItemNameSelected ? "config" : ""
+        root.ulauncherItemTextSelectedSource = root.ulauncherItemTextSelected ? "config" : ""
+        root.ulauncherShortcutColorSource = root.ulauncherShortcutColor ? "config" : ""
+        root.ulauncherShortcutColorSelSource = root.ulauncherShortcutColorSel ? "config" : ""
+        root.ulauncherWhenSelectedSource = root.ulauncherWhenSelected ? "config" : ""
+        root.ulauncherWhenNotSelectedSource = root.ulauncherWhenNotSelected ? "config" : ""
+        
+        // OpenRGB
+        var openrgbAccent = backend.getConfigValue("openrgb", "accent", "")
+        root.openrgbAccent = openrgbAccent.replace("#", "")
+        root.openrgbAccentSource = root.openrgbAccent ? "config" : ""
     }
     
     function loadKdeColorsFromScheme(schemeName) {
