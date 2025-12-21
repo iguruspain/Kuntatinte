@@ -460,14 +460,15 @@ class PaletteBackend(QObject):
         thread = threading.Thread(target=_worker, daemon=True)
         thread.start()
 
-    @pyqtSlot(str, str, str, result='QString')
-    def runAutogen(self, mode: str, image_path: str = "", selected_color: str = "") -> str:
+    @pyqtSlot(str, str, str, str, result='QString')
+    def runAutogen(self, mode: str, image_path: str = "", primary_color: str = "", accent_color: str = "") -> str:
         """Run autogen in production mode with a palette mode ("dark"/"light").
 
         Args:
             mode: Palette mode string from QML (e.g., "dark" or "light").
             image_path: Path to the selected wallpaper image.
-            selected_color: Currently selected accent color from the UI.
+            primary_color: Primary color from Kuntatinte Color Scheme for generating KDE schemes.
+            accent_color: Accent color from central panel for PrimaryColor in autogen rules.
 
         Returns:
             JSON string with generated data or error.
@@ -483,11 +484,11 @@ class PaletteBackend(QObject):
                     self._current_palette = hex_colors
                     logger.info(f"Extracted palette: {hex_colors}")
             
-            # Use selected_color as accent_override if provided
-            accent_override = selected_color if selected_color else self._current_accent_override
+            # Use accent_color as accent_override if provided
+            accent_override = accent_color if accent_color else self._current_accent_override
             
-            logger.info(f"runAutogen called with mode={mode}, image_path={image_path}, selected_color={selected_color}, current_palette={self._current_palette}, primary_index={self._current_primary_index}, accent_override={accent_override}")
-            result = autogen.run_autogen(test_mode=False, palette_mode=mode, palette=self._current_palette, primary_index=self._current_primary_index, accent_override=accent_override, primary_color=selected_color)
+            logger.info(f"runAutogen called with mode={mode}, image_path={image_path}, primary_color={primary_color}, accent_color={accent_color}, current_palette={self._current_palette}, primary_index={self._current_primary_index}, accent_override={accent_override}")
+            result = autogen.run_autogen(test_mode=False, palette_mode=mode, palette=self._current_palette, primary_index=self._current_primary_index, accent_override=accent_override, primary_color=primary_color)
             # Parse result to get primary_index and update current settings
             try:
                 result_data = json.loads(result)

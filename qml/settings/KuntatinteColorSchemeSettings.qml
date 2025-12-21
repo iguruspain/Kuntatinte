@@ -10,6 +10,7 @@ import org.kde.kirigami as Kirigami
  */
 Controls.ScrollView {
     id: kdeSettings2
+    objectName: "KuntatinteColorSchemeSettings"
     visible: settingsPanel.currentSettingName === "Kuntatinte Color Scheme"
     Layout.fillWidth: true
     Layout.fillHeight: true
@@ -21,6 +22,11 @@ Controls.ScrollView {
     //   -100 to -199: Material You source colors
     //   >= 0: Palette colors
     property int primaryColorIndex: 0
+    onPrimaryColorIndexChanged: {
+        if (primaryColorIndexInitialized) {
+            backend.setConfigValue("color_scheme", "primary_index", primaryColorIndex)
+        }
+    }
     
     // Track if primaryColorIndex has been initialized
     property bool primaryColorIndexInitialized: false

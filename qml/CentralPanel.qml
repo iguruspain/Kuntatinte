@@ -489,7 +489,8 @@ ColumnLayout {
                                     busyIndicator: busyIndicator,
                                     paletteMode: root.paletteMode,
                                     selectedImagePath: root.selectedImagePath,
-                                    selectedColor: root.selectedColor
+                                    primaryColor: root.getKuntatinteSelectedColor(),
+                                    accentColor: root.selectedColor
                                 })
                                 if (dlg) dlg.open()
                                 else console.log("Failed to create AutogenDialog object")

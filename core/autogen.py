@@ -232,10 +232,10 @@ def run_autogen(test_mode: bool = True, palette_mode: Optional[str] = None, pale
                 if extract_method == "variable":
                     variable_key = rule.get("variable_key")
                     if variable_key == "PrimaryColor":
-                        # Use primary_color if provided, else extract from scheme
-                        if primary_color:
-                            color = primary_color
-                            logger.info(f"Using provided primary_color: {color}")
+                        # Use accent_override if provided (central panel color), else extract from scheme
+                        if accent_override:
+                            color = accent_override
+                            logger.info(f"Using accent_override for PrimaryColor: {color}")
                         else:
                             color = _extract_color_from_scheme(scheme_path, "Colors:Window", "DecorationFocus")
                             logger.info(f"Extracted PrimaryColor from DecorationFocus: {color}")

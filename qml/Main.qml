@@ -433,6 +433,79 @@ Kirigami.ApplicationWindow {
      */
     
     // =========================================================================
+    // Kuntatinte Color Scheme Functions
+    // =========================================================================
+    
+    function getKuntatinteSelectedColor() {
+        // First try to get the color from the Kuntatinte settings component (most current selection)
+        if (settingsPanel) {
+            for (var i = 0; i < settingsPanel.children.length; i++) {
+                var child = settingsPanel.children[i]
+                if (child.objectName === "KuntatinteColorSchemeSettings" && child.getSelectedColor) {
+                    var color = child.getSelectedColor()
+                    if (color) {
+                        console.log("[Kuntatinte] Using current selection from KuntatinteColorSchemeSettings component:", color)
+                        return color
+                    }
+                }
+            }
+        }
+        
+        // Fallback to calculating based on saved configuration
+        var primaryIndex = backend.getConfigValue("color_scheme", "primary_index", 0)
+        
+        // Special case: if saved index is 0 (old default) and we have Material You colors, prefer Material You
+        if (primaryIndex === 0 && root.sourceColors && root.sourceColors.length > 0) {
+            primaryIndex = -100
+            console.log("[Kuntatinte] Overriding saved primary_index 0 to -100 for Material You")
+        }
+        
+        console.log("[Kuntatinte] Using primary_index:", primaryIndex)
+        
+        if (primaryIndex === -1 && root.extractedAccent) {
+            console.log("[Kuntatinte] Using extracted accent:", root.extractedAccent)
+            return root.extractedAccent
+        } else if (primaryIndex <= -100) {
+            var sourceIdx = -100 - primaryIndex
+            if (root.sourceColors && sourceIdx < root.sourceColors.length) {
+                console.log("[Kuntatinte] Using source color at index", sourceIdx, ":", root.sourceColors[sourceIdx])
+                return root.sourceColors[sourceIdx]
+            }
+        } else if (primaryIndex >= 0 && root.extractedColors && primaryIndex < root.extractedColors.length) {
+            console.log("[Kuntatinte] Using extracted color at index", primaryIndex, ":", root.extractedColors[primaryIndex])
+            return root.extractedColors[primaryIndex]
+        }
+        
+        // If no valid saved index, calculate default
+        var fallbackIndex = -1
+        if (root.sourceColors && root.sourceColors.length > 0) {
+            fallbackIndex = -100
+        } else if (root.extractedAccent && root.extractedAccent !== "") {
+            fallbackIndex = -1
+        } else if (root.extractedColors && root.extractedColors.length > 0) {
+            fallbackIndex = 0
+        }
+        
+        if (fallbackIndex === -1 && root.extractedAccent) {
+            console.log("[Kuntatinte] Using default extracted accent:", root.extractedAccent)
+            return root.extractedAccent
+        } else if (fallbackIndex <= -100) {
+            var sourceIdx = -100 - fallbackIndex
+            if (root.sourceColors && sourceIdx < root.sourceColors.length) {
+                console.log("[Kuntatinte] Using default source color at index", sourceIdx, ":", root.sourceColors[sourceIdx])
+                return root.sourceColors[sourceIdx]
+            }
+        } else if (fallbackIndex >= 0 && root.extractedColors && fallbackIndex < root.extractedColors.length) {
+            console.log("[Kuntatinte] Using default extracted color at index", fallbackIndex, ":", root.extractedColors[fallbackIndex])
+            return root.extractedColors[fallbackIndex]
+        }
+        
+        // Final fallback
+        console.log("[Kuntatinte] Using fallback selectedColor:", root.selectedColor)
+        return root.selectedColor
+    }
+    
+    // =========================================================================
     // UI State Properties
     // =========================================================================
     

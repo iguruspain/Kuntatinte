@@ -31,8 +31,10 @@ Controls.Dialog {
     property string paletteMode: "dark"
     // Selected image path from parent
     property string selectedImagePath: ""
-    // Selected color from parent
-    property string selectedColor: ""
+    // Primary color from Kuntatinte Color Scheme
+    property string primaryColor: ""
+    // Accent color from central panel
+    property string accentColor: ""
 
     contentItem: ColumnLayout {
         Layout.margins: Kirigami.Units.largeSpacing
@@ -51,7 +53,7 @@ Controls.Dialog {
                 onClicked: {
                     if (busyIndicator) busyIndicator.visible = true
                     if (backend) {
-                        var res = backend.runAutogen(paletteMode, selectedImagePath, selectedColor)
+                        var res = backend.runAutogen(paletteMode, selectedImagePath, primaryColor, accentColor)
                         try {
                             var obj = JSON.parse(res)
                             rootDialog.autogenText = JSON.stringify(obj, null, 2)
