@@ -77,6 +77,10 @@ Controls.ScrollView {
         
         if (shouldUseCalculated) {
             kdeSettings2.primaryColorIndex = calcIndex
+            // Save the calculated index if it's different from saved or if no saved value
+            if (savedPrimaryIndex === null || savedPrimaryIndex !== calcIndex) {
+                backend.setConfigValue("color_scheme", "primary_index", calcIndex)
+            }
         }
         
         primaryColorIndexInitialized = true
@@ -121,10 +125,6 @@ Controls.ScrollView {
         
         // Final fallback
         return 0;
-    }
-    
-    function updatePrimaryColorIndex() {
-        // Not used anymore, using binding
     }
     
     property string editSchemeName: ""

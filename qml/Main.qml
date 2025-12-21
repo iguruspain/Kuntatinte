@@ -454,12 +454,6 @@ Kirigami.ApplicationWindow {
         // Fallback to calculating based on saved configuration
         var primaryIndex = backend.getConfigValue("color_scheme", "primary_index", 0)
         
-        // Special case: if saved index is 0 (old default) and we have Material You colors, prefer Material You
-        if (primaryIndex === 0 && root.sourceColors && root.sourceColors.length > 0) {
-            primaryIndex = -100
-            console.log("[Kuntatinte] Overriding saved primary_index 0 to -100 for Material You")
-        }
-        
         console.log("[Kuntatinte] Using primary_index:", primaryIndex)
         
         if (primaryIndex === -1 && root.extractedAccent) {
