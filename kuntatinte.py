@@ -32,13 +32,42 @@ from core.config_manager import config
 def setup_logging():
     """Configure logging based on user configuration."""
     if not config.logging_enabled:
-        # Disable all logging and redirect output to suppress any messages
+        # Disable all logging
         logging.getLogger().setLevel(logging.CRITICAL + 1)
-        # Redirect stdout and stderr to /dev/null to suppress Qt/QML messages
+        
+        # Suppress Qt/QML debug messages
         import os
+        os.environ['QT_LOGGING_RULES'] = 'qt.qml=false'
+        
+        # Install Qt message handler to suppress all Qt messages
+        def silent_qt_handler(mode, context, message):
+            # Suppress all Qt messages when logging is disabled
+            pass
+        
+        # Import here to avoid circular imports
+        from PyQt6.QtCore import qInstallMessageHandler
+        qInstallMessageHandler(silent_qt_handler)
+        
+        # Also redirect stdout and stderr as backup
         sys.stdout = open(os.devnull, 'w')
         sys.stderr = open(os.devnull, 'w')
         return
+    
+    # When logging is enabled, allow Qt messages but filter them
+    import os
+    # Suppress QML debug messages but allow other Qt messages
+    os.environ['QT_LOGGING_RULES'] = '*.qml=false;qt.qml=false'
+    
+    # Install Qt message handler to filter messages
+    def qt_message_handler(mode, context, message):
+        # Suppress libpng warnings and QML debug messages
+        if "libpng warning" in message or message.startswith("qml:"):
+            return
+        # Log other Qt messages as warnings
+        logger.warning(f"Qt: {message}")
+    
+    from PyQt6.QtCore import qInstallMessageHandler
+    qInstallMessageHandler(qt_message_handler)
     
     # Map string levels to logging constants
     level_map = {
@@ -78,20 +107,11 @@ from core.qt_environment import (
 
 setup_qt_environment()
 
-from PyQt6.QtCore import QUrl, QtMsgType
+from PyQt6.QtCore import QUrl
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtWidgets import QApplication
 
 from core.backend import PaletteBackend
-
-
-def qt_message_handler(_mode: QtMsgType, _context, message: str) -> None:
-    """Filter out noisy Qt warnings."""
-    # Suppress libpng ICC profile warnings
-    if "libpng warning" in message:
-        return
-    # Log other messages
-    logger.warning(message)
 
 
 def main() -> None:
@@ -103,11 +123,6 @@ def main() -> None:
     app.setApplicationName("Kuntatinte")
     app.setOrganizationName("PaletteTools")
     app.setOrganizationDomain("local")
-    
-    # Install Qt message handler if logging is enabled
-    if config.logging_enabled:
-        from PyQt6.QtCore import qInstallMessageHandler
-        qInstallMessageHandler(qt_message_handler)
     
     # Create QML engine
     engine = QQmlApplicationEngine()
