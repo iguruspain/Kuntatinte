@@ -36,6 +36,20 @@ Controls.ScrollView {
     property var pendingEditSchemeData: null
     property var pendingEditSchemeSections: []
     property var pendingEditSchemeInactive: []
+    property int schemeVariant: 5  // TonalSpot default
+    
+    ListModel {
+        id: schemeVariantsModel
+        ListElement { text: "Content"; value: 0 }
+        ListElement { text: "Expressive"; value: 1 }
+        ListElement { text: "Fidelity"; value: 2 }
+        ListElement { text: "Monochrome"; value: 3 }
+        ListElement { text: "Neutral"; value: 4 }
+        ListElement { text: "TonalSpot"; value: 5 }
+        ListElement { text: "Vibrant"; value: 6 }
+        ListElement { text: "Rainbow"; value: 7 }
+        ListElement { text: "FruitSalad"; value: 8 }
+    }
     
     // Helper function to get contrast text color (black/white) for a given background color
     function getContrastTextColor(bgColor) {
@@ -75,7 +89,8 @@ Controls.ScrollView {
             previewData = backend.getKuntatintePreview(
                 root.extractedColors,
                 kdeSettings2.primaryColorIndex >= 0 ? kdeSettings2.primaryColorIndex : -1,
-                kdeSettings2.primaryColorIndex < 0 ? selectedColor : ""
+                kdeSettings2.primaryColorIndex < 0 ? selectedColor : "",
+                schemeVariant
             )
         }
     }
@@ -106,6 +121,8 @@ Controls.ScrollView {
         }
         // Auto-reload available Kuntatinte schemes at startup
         reloadKuntatinteSchemes()
+        // Load config values
+        schemeVariant = backend.getConfigValue("color_scheme", "scheme_variant", 5)
     }
 
     // Reload list of Kuntatinte schemes and (optionally) the selected scheme data
@@ -347,64 +364,6 @@ Controls.ScrollView {
                 }
             }
 
-            // Palette section
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 4
-                visible: root.extractedColors.length > 0
-
-                Controls.Label {
-                    text: "Palette:"
-                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                    color: Kirigami.Theme.disabledTextColor
-                }
-
-                Grid {
-                    Layout.fillWidth: true
-                    columns: 8
-                    rowSpacing: 4
-                    columnSpacing: 4
-
-                    Repeater {
-                        model: root.extractedColors.length > 0 ? root.extractedColors : []
-
-                        Rectangle {
-                            width: 28
-                            height: 28
-                            radius: 4
-                            color: modelData
-                            border.width: index === kdeSettings2.primaryColorIndex ? 2 : 1
-                            border.color: index === kdeSettings2.primaryColorIndex 
-                                ? Kirigami.Theme.highlightColor 
-                                : Kirigami.Theme.disabledTextColor
-
-                            Kirigami.Icon {
-                                anchors.centerIn: parent
-                                width: 14
-                                height: 14
-                                source: "dialog-ok"
-                                color: kdeSettings2.getContrastTextColor(modelData)
-                                visible: index === kdeSettings2.primaryColorIndex
-                            }
-
-                            Controls.ToolTip.text: modelData
-                            Controls.ToolTip.visible: paletteMouseArea.containsMouse
-
-                            MouseArea {
-                                id: paletteMouseArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    kdeSettings2.primaryColorIndex = index
-                                    updatePreview()
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             // Show message if no colors available
             Controls.Label {
                 visible: root.extractedColors.length === 0 && root.sourceColorsCount === 0 && !root.extractedAccent
@@ -449,6 +408,45 @@ Controls.ScrollView {
 
         SubtleSeparator {}
 
+        // Scheme variant selector
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Kirigami.Units.smallSpacing
+
+            Controls.Label {
+                text: "Scheme Variant:"
+            }
+
+            Controls.ComboBox {
+                id: schemeVariantCombo
+                Layout.fillWidth: true
+                textRole: "text"
+                valueRole: "value"
+                model: schemeVariantsModel
+                currentIndex: {
+                    for (var i = 0; i < schemeVariantsModel.count; i++) {
+                        if (schemeVariantsModel.get(i).value === kdeSettings2.schemeVariant) {
+                            return i
+                        }
+                    }
+                    return 5 // TonalSpot default
+                }
+
+                onCurrentIndexChanged: {
+                    if (currentIndex >= 0) {
+                        var variant = schemeVariantsModel.get(currentIndex)
+                        kdeSettings2.schemeVariant = variant.value
+                        backend.setConfigValue("color_scheme", "scheme_variant", variant.value)
+                        updatePreview()
+                    }
+                }
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
+        SubtleSeparator {}
+
         Controls.Label {
             text: "Preview"
             font.bold: true
@@ -458,187 +456,237 @@ Controls.ScrollView {
 
         // Previews side-by-side
         RowLayout {
-        Layout.fillWidth: true
-        spacing: Kirigami.Units.smallSpacing
-
-        Rectangle {
-            id: darkPreview
             Layout.fillWidth: true
-            Layout.preferredHeight: 80
-            color: previewData.dark ? previewData.dark.surface : "#1a1a1a"
-            radius: 8
+            spacing: Kirigami.Units.smallSpacing
 
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: Kirigami.Units.smallSpacing
-                spacing: 6
+            // Dark theme preview
+            Rectangle {
+                id: darkPreview
+                Layout.fillWidth: true
+                Layout.preferredHeight: 120
+                color: previewData && previewData.dark && previewData.dark.window_bg ? previewData.dark.window_bg : "#1a1a1a"
+                radius: 8
+                border.width: 1
+                border.color: previewData && previewData.dark && previewData.dark.button_bg ? previewData.dark.button_bg : "#333333"
 
-                Controls.Label {
-                    text: "Kuntatinte Dark"
-                    font.bold: true
-                    color: previewData.dark ? previewData.dark.onSurface : "#ffffff"
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Kirigami.Units.smallSpacing
+                    spacing: 4
+
+                    Controls.Label {
+                        text: "Kuntatinte Dark"
+                        font.bold: true
+                        color: previewData && previewData.dark && previewData.dark.window_fg ? previewData.dark.window_fg : "#ffffff"
+                        font.pixelSize: 12
+                    }
+
+                    // Window background simulation
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        color: previewData && previewData.dark && previewData.dark.window_bg ? previewData.dark.window_bg : "#2a2a2a"
+                        radius: 4
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 6
+                            spacing: 4
+
+                            // Title bar simulation (using window colors)
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 20
+                                color: previewData.dark && previewData.dark.button_bg ? previewData.dark.button_bg : "#333333"
+                                radius: 2
+
+                                Controls.Label {
+                                    anchors.centerIn: parent
+                                    text: "Window Title"
+                                    color: previewData.dark && previewData.dark.button_fg ? previewData.dark.button_fg : "#ffffff"
+                                    font.pixelSize: 10
+                                }
+                            }
+
+                            // Content area
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                spacing: 4
+
+                                // Text on view background (using view colors)
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    color: previewData.dark && previewData.dark.view_bg ? previewData.dark.view_bg : "#3a3a3a"
+                                    radius: 2
+
+                                    Controls.Label {
+                                        anchors.centerIn: parent
+                                        text: "Content text"
+                                        color: previewData.dark && previewData.dark.view_fg ? previewData.dark.view_fg : "#cccccc"
+                                        font.pixelSize: 9
+                                    }
+                                }
+
+                                // Button simulations (normal and pressed states) - smaller and below content
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 16
+                                    spacing: 2
+
+                                    // Normal button
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        color: previewData.dark && previewData.dark.button_bg ? previewData.dark.button_bg : "#8899aa"
+                                        radius: 2
+
+                                        Controls.Label {
+                                            anchors.centerIn: parent
+                                            text: "OK"
+                                            color: previewData.dark && previewData.dark.button_fg ? previewData.dark.button_fg : "#000000"
+                                            font.pixelSize: 6
+                                            font.bold: true
+                                        }
+                                    }
+
+                                    // Pressed/active button (using selection colors)
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        color: previewData.dark && previewData.dark.selection_bg ? previewData.dark.selection_bg : "#4a90e2"
+                                        radius: 2
+
+                                        Controls.Label {
+                                            anchors.centerIn: parent
+                                            text: "Save"
+                                            color: previewData.dark && previewData.dark.selection_fg ? previewData.dark.selection_fg : "#ffffff"
+                                            font.pixelSize: 6
+                                            font.bold: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+            }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
+            // Light theme preview
+            Rectangle {
+                id: lightPreview
+                Layout.fillWidth: true
+                Layout.preferredHeight: 120
+                color: previewData && previewData.light && previewData.light.window_bg ? previewData.light.window_bg : "#f5f5f5"
+                radius: 8
+                border.width: 1
+                border.color: previewData && previewData.light && previewData.light.button_bg ? previewData.light.button_bg : "#cccccc"
 
-                    // Primary
-                    Rectangle {
-                        width: 36
-                        height: 22
-                        radius: 4
-                        color: previewData.dark ? previewData.dark.primary : "#8899aa"
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Kirigami.Units.smallSpacing
+                    spacing: 4
 
-                        Controls.Label {
-                            anchors.centerIn: parent
-                            text: "Pri"
-                            font.pixelSize: 10
-                            color: previewData.dark ? previewData.dark.onPrimary : "#000000"
-                        }
+                    Controls.Label {
+                        text: "Kuntatinte Light"
+                        font.bold: true
+                        color: previewData && previewData.light && previewData.light.window_fg ? previewData.light.window_fg : "#000000"
+                        font.pixelSize: 12
                     }
 
-                    // Secondary
+                    // Window background simulation
                     Rectangle {
-                        width: 36
-                        height: 22
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        color: previewData.light && previewData.light.window_bg ? previewData.light.window_bg : "#e8e8e8"
                         radius: 4
-                        color: previewData.dark ? previewData.dark.secondary : "#667788"
 
-                        Controls.Label {
-                            anchors.centerIn: parent
-                            text: "Sec"
-                            font.pixelSize: 10
-                            color: previewData.dark ? previewData.dark.onPrimary : "#000000"
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 6
+                            spacing: 4
+
+                            // Title bar simulation (using window colors)
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 20
+                                color: previewData.light && previewData.light.button_bg ? previewData.light.button_bg : "#d0d0d0"
+                                radius: 2
+
+                                Controls.Label {
+                                    anchors.centerIn: parent
+                                    text: "Window Title"
+                                    color: previewData.light && previewData.light.button_fg ? previewData.light.button_fg : "#000000"
+                                    font.pixelSize: 10
+                                }
+                            }
+
+                            // Content area
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                spacing: 4
+
+                                // Text on view background (using view colors)
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    color: previewData.light && previewData.light.view_bg ? previewData.light.view_bg : "#c8c8c8"
+                                    radius: 2
+
+                                    Controls.Label {
+                                        anchors.centerIn: parent
+                                        text: "Content text"
+                                        color: previewData.light && previewData.light.view_fg ? previewData.light.view_fg : "#333333"
+                                        font.pixelSize: 9
+                                    }
+                                }
+
+                                // Button simulations (normal and pressed states) - smaller and below content
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 16
+                                    spacing: 2
+
+                                    // Normal button
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        color: previewData.light && previewData.light.button_bg ? previewData.light.button_bg : "#667788"
+                                        radius: 2
+
+                                        Controls.Label {
+                                            anchors.centerIn: parent
+                                            text: "OK"
+                                            color: previewData.light && previewData.light.button_fg ? previewData.light.button_fg : "#ffffff"
+                                            font.pixelSize: 6
+                                            font.bold: true
+                                        }
+                                    }
+
+                                    // Pressed/active button (using selection colors)
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        color: previewData.light && previewData.light.selection_bg ? previewData.light.selection_bg : "#4a90e2"
+                                        radius: 2
+
+                                        Controls.Label {
+                                            anchors.centerIn: parent
+                                            text: "Save"
+                                            color: previewData.light && previewData.light.selection_fg ? previewData.light.selection_fg : "#ffffff"
+                                            font.pixelSize: 6
+                                            font.bold: true
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-
-                    // Tertiary
-                    Rectangle {
-                        width: 36
-                        height: 22
-                        radius: 4
-                        color: previewData.dark ? previewData.dark.tertiary : "#778899"
-
-                        Controls.Label {
-                            anchors.centerIn: parent
-                            text: "Ter"
-                            font.pixelSize: 10
-                            color: previewData.dark ? previewData.dark.onPrimary : "#000000"
-                        }
-                    }
-
-                    // Error
-                    Rectangle {
-                        width: 36
-                        height: 22
-                        radius: 4
-                        color: previewData.dark ? previewData.dark.error : "#ff6666"
-
-                        Controls.Label {
-                            anchors.centerIn: parent
-                            text: "Err"
-                            font.pixelSize: 10
-                            color: "#000000"
-                        }
-                    }
-
-                    Item { Layout.fillWidth: true }
                 }
-
-                Item { Layout.fillHeight: true }
             }
         }
-
-        Rectangle {
-            id: lightPreview
-            Layout.fillWidth: true
-            Layout.preferredHeight: 80
-            color: previewData.light ? previewData.light.surface : "#f5f5f5"
-            radius: 8
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: Kirigami.Units.smallSpacing
-                spacing: 6
-
-                Controls.Label {
-                    text: "Kuntatinte Light"
-                    font.bold: true
-                    color: previewData.light ? previewData.light.onSurface : "#000000"
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-
-                    // Primary
-                    Rectangle {
-                        width: 36
-                        height: 22
-                        radius: 4
-                        color: previewData.light ? previewData.light.primary : "#445566"
-
-                        Controls.Label {
-                            anchors.centerIn: parent
-                            text: "Pri"
-                            font.pixelSize: 10
-                            color: previewData.light ? previewData.light.onPrimary : "#ffffff"
-                        }
-                    }
-
-                    // Secondary
-                    Rectangle {
-                        width: 36
-                        height: 22
-                        radius: 4
-                        color: previewData.light ? previewData.light.secondary : "#556677"
-
-                        Controls.Label {
-                            anchors.centerIn: parent
-                            text: "Sec"
-                            font.pixelSize: 10
-                            color: previewData.light ? previewData.light.onPrimary : "#ffffff"
-                        }
-                    }
-
-                    // Tertiary
-                    Rectangle {
-                        width: 36
-                        height: 22
-                        radius: 4
-                        color: previewData.light ? previewData.light.tertiary : "#667788"
-
-                        Controls.Label {
-                            anchors.centerIn: parent
-                            text: "Ter"
-                            font.pixelSize: 10
-                            color: previewData.light ? previewData.light.onPrimary : "#ffffff"
-                        }
-                    }
-
-                    // Error
-                    Rectangle {
-                        width: 36
-                        height: 22
-                        radius: 4
-                        color: previewData.light ? previewData.light.error : "#cc3333"
-
-                        Controls.Label {
-                            anchors.centerIn: parent
-                            text: "Err"
-                            font.pixelSize: 10
-                            color: "#ffffff"
-                        }
-                    }
-
-                    Item { Layout.fillWidth: true }
-                }
-
-                Item { Layout.fillHeight: true }
-            }
-        }
-    }
     
     Item { Layout.preferredHeight: Kirigami.Units.largeSpacing }
     
@@ -658,7 +706,8 @@ Controls.ScrollView {
                     root.extractedColors,
                     kdeSettings2.primaryColorIndex >= 0 ? kdeSettings2.primaryColorIndex : -1,
                     kdeSettings2.toolbarOpacity,
-                    kdeSettings2.primaryColorIndex < 0 ? selectedColor : ""
+                    kdeSettings2.primaryColorIndex < 0 ? selectedColor : "",
+                    schemeVariant
                 )
                 if (result === "") {
                     root.showPassiveNotification("Generated Kuntatinte Light and Dark")
@@ -973,7 +1022,8 @@ Controls.ScrollView {
                     root.extractedColors,
                     kdeSettings2.primaryColorIndex >= 0 ? kdeSettings2.primaryColorIndex : -1,
                     kdeSettings2.toolbarOpacity,
-                    kdeSettings2.primaryColorIndex < 0 ? selectedColor : ""
+                    kdeSettings2.primaryColorIndex < 0 ? selectedColor : "",
+                    schemeVariant
                 )
                 if (genResult === "") {
                     if (backend.applyColorScheme("KuntatinteDark")) {
@@ -997,7 +1047,8 @@ Controls.ScrollView {
                     root.extractedColors,
                     kdeSettings2.primaryColorIndex >= 0 ? kdeSettings2.primaryColorIndex : -1,
                     kdeSettings2.toolbarOpacity,
-                    kdeSettings2.primaryColorIndex < 0 ? selectedColor : ""
+                    kdeSettings2.primaryColorIndex < 0 ? selectedColor : "",
+                    schemeVariant
                 )
                 if (genResult === "") {
                     if (backend.applyColorScheme("KuntatinteLight")) {

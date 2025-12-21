@@ -1104,8 +1104,8 @@ class PaletteBackend(QObject):
     # KDE Color Scheme V2 (Kuntatinte) Methods
     # =========================================================================
 
-    @pyqtSlot('QVariantList', int, int, 'QString', result='QString')
-    def generateKuntatinteSchemes(self, palette: list, primary_index: int, toolbar_opacity: int, accent_override: str = "") -> str:
+    @pyqtSlot('QVariantList', int, int, 'QString', int, result='QString')
+    def generateKuntatinteSchemes(self, palette: list, primary_index: int, toolbar_opacity: int, accent_override: str = "", scheme_variant: int = 5) -> str:
         """Generate and save Kuntatinte Light and Dark color schemes.
         
         Args:
@@ -1113,6 +1113,7 @@ class PaletteBackend(QObject):
             primary_index: Index of the primary color in palette (-1 to use accent_override)
             toolbar_opacity: Opacity for toolbar/titlebar (0-100)
             accent_override: Optional hex color to use as primary instead of palette index
+            scheme_variant: Material You scheme variant
         
         Returns:
             Empty string on success, error message on failure.
@@ -1122,11 +1123,11 @@ class PaletteBackend(QObject):
             # Create a modified palette with accent as first element
             modified_palette = [accent_override] + list(palette)
             success, message = generate_and_save_kuntatinte_schemes(
-                modified_palette, 0, toolbar_opacity
+                modified_palette, 0, toolbar_opacity, scheme_variant
             )
         else:
             success, message = generate_and_save_kuntatinte_schemes(
-                palette, primary_index, toolbar_opacity
+                palette, primary_index, toolbar_opacity, scheme_variant
             )
         if success:
             logger.info(f"Kuntatinte schemes generated: {message}")
@@ -1135,14 +1136,15 @@ class PaletteBackend(QObject):
             logger.error(f"Error generating Kuntatinte schemes: {message}")
             return message
 
-    @pyqtSlot('QVariantList', int, 'QString', result='QVariant')
-    def getKuntatintePreview(self, palette: list, primary_index: int, accent_override: str = "") -> dict:
+    @pyqtSlot('QVariantList', int, 'QString', int, result='QVariant')
+    def getKuntatintePreview(self, palette: list, primary_index: int, accent_override: str = "", scheme_variant: int = 5) -> dict:
         """Get preview colors for Kuntatinte schemes.
         
         Args:
             palette: List of hex colors
             primary_index: Index of primary color (-1 to use accent_override)
             accent_override: Optional hex color to use as primary
+            scheme_variant: Material You scheme variant
         
         Returns:
             Dictionary with 'light' and 'dark' preview colors
@@ -1152,11 +1154,11 @@ class PaletteBackend(QObject):
         # If accent_override provided and index is -1, use it
         if primary_index == -1 and accent_override:
             modified_palette = [accent_override] + list(palette)
-            return get_preview_data(modified_palette, 0)
-        return get_preview_data(palette, primary_index)
+            return get_preview_data(modified_palette, 0, scheme_variant)
+        return get_preview_data(palette, primary_index, scheme_variant)
 
-    @pyqtSlot('QVariantList', int, int, 'QString', result='QString')
-    def generateAndApplyKuntatinte(self, palette: list, primary_index: int, toolbar_opacity: int, accent_override: str = "") -> str:
+    @pyqtSlot('QVariantList', int, int, 'QString', int, result='QString')
+    def generateAndApplyKuntatinte(self, palette: list, primary_index: int, toolbar_opacity: int, accent_override: str = "", scheme_variant: int = 5) -> str:
         """Generate, save and apply Kuntatinte scheme based on current mode.
         
         Args:
@@ -1164,6 +1166,7 @@ class PaletteBackend(QObject):
             primary_index: Index of the primary color in palette (-1 to use accent_override)
             toolbar_opacity: Opacity for toolbar/titlebar (0-100)
             accent_override: Optional hex color to use as primary
+            scheme_variant: Material You scheme variant
         
         Returns:
             Empty string on success, error message on failure.
@@ -1171,13 +1174,22 @@ class PaletteBackend(QObject):
         if primary_index == -1 and accent_override:
             modified_palette = [accent_override] + list(palette)
             success, message = generate_and_save_kuntatinte_schemes(
-                modified_palette, 0, toolbar_opacity
+                modified_palette, 0, toolbar_opacity, scheme_variant
             )
         else:
             success, message = generate_and_save_kuntatinte_schemes(
-                palette, primary_index, toolbar_opacity
+                palette, primary_index, toolbar_opacity, scheme_variant
             )
         if not success:
             return message
         return ""
+
+    @pyqtSlot(str, str, 'QVariant', result='QVariant')
+    def getConfigValue(self, section: str, key: str, default=None):
+        return config.get(section, key, default)
+
+    @pyqtSlot(str, str, 'QVariant')
+    def setConfigValue(self, section: str, key: str, value):
+        config.set(section, key, value)
+        config._save()
 

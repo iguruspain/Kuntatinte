@@ -620,3 +620,185 @@ def generate_palette_from_seed(seed_hex: str, mode: str = "dark", slider_percent
 
     return palette
 
+
+# =============================================================================
+# Material You Color Generation
+# =============================================================================
+
+# Material You imports
+try:
+    from materialyoucolor.hct import Hct
+    from materialyoucolor.scheme.scheme_content import SchemeContent
+    from materialyoucolor.scheme.scheme_expressive import SchemeExpressive
+    from materialyoucolor.scheme.scheme_fidelity import SchemeFidelity
+    from materialyoucolor.scheme.scheme_monochrome import SchemeMonochrome
+    from materialyoucolor.scheme.scheme_neutral import SchemeNeutral
+    from materialyoucolor.scheme.scheme_tonal_spot import SchemeTonalSpot
+    from materialyoucolor.scheme.scheme_vibrant import SchemeVibrant
+    from materialyoucolor.scheme.scheme_rainbow import SchemeRainbow
+    from materialyoucolor.scheme.scheme_fruit_salad import SchemeFruitSalad
+    from materialyoucolor.dynamiccolor.material_dynamic_colors import MaterialDynamicColors
+    HAS_MATERIAL_YOU = True
+except ImportError:
+    HAS_MATERIAL_YOU = False
+    Hct = None
+    SchemeContent = None
+    SchemeExpressive = None
+    SchemeFidelity = None
+    SchemeMonochrome = None
+    SchemeNeutral = None
+    SchemeTonalSpot = None
+    SchemeVibrant = None
+    SchemeRainbow = None
+    SchemeFruitSalad = None
+    MaterialDynamicColors = None
+
+
+def is_material_you_available() -> bool:
+    """Check if Material You color generation is available."""
+    return HAS_MATERIAL_YOU
+
+
+def create_material_you_scheme(seed_color: str, is_dark: bool = False, variant: int = 5) -> 'SchemeTonalSpot':
+    """Create a Material You color scheme from a seed color.
+    
+    Args:
+        seed_color: Hex color string
+        is_dark: Whether to create dark theme
+        variant: Scheme variant (0=Content, 1=Expressive, 2=Fidelity, etc.)
+    
+    Returns:
+        Material You scheme object
+    """
+    if not HAS_MATERIAL_YOU:
+        raise ImportError("materialyoucolor not available")
+    
+    # Convert hex to HCT
+    rgb = hex_to_rgb(seed_color)
+    hct = Hct.from_int((rgb[0] << 16) | (rgb[1] << 8) | rgb[2])
+    
+    # Create scheme based on variant
+    scheme_classes = {
+        0: SchemeContent,
+        1: SchemeExpressive,
+        2: SchemeFidelity,
+        3: SchemeMonochrome,
+        4: SchemeNeutral,
+        5: SchemeTonalSpot,
+        6: SchemeVibrant,
+        7: SchemeRainbow,
+        8: SchemeFruitSalad,
+    }
+    
+    scheme_class = scheme_classes.get(variant, SchemeTonalSpot)
+    return scheme_class(hct, is_dark, 0.0)
+
+
+def get_material_you_colors_from_scheme(scheme, is_dark: bool = False) -> dict:
+    """Extract colors from a Material You scheme.
+    
+    Args:
+        scheme: Material You scheme object
+        is_dark: Whether this is for dark theme
+    
+    Returns:
+        Dictionary of color names to hex values
+    """
+    if not HAS_MATERIAL_YOU:
+        return {}
+    
+    colors = {}
+    
+    # Get dynamic colors
+    dynamic_colors = MaterialDynamicColors()
+    
+    # Map color names to their dynamic color properties (extended list)
+    color_mappings = {
+        'primary': 'primary',
+        'onPrimary': 'onPrimary',
+        'primaryContainer': 'primaryContainer',
+        'onPrimaryContainer': 'onPrimaryContainer',
+        'primaryFixed': 'primaryFixed',
+        'primaryFixedDim': 'primaryFixedDim',
+        'onPrimaryFixed': 'onPrimaryFixed',
+        'onPrimaryFixedVariant': 'onPrimaryFixedVariant',
+        'secondary': 'secondary',
+        'onSecondary': 'onSecondary',
+        'secondaryContainer': 'secondaryContainer',
+        'onSecondaryContainer': 'onSecondaryContainer',
+        'secondaryFixed': 'secondaryFixed',
+        'secondaryFixedDim': 'secondaryFixedDim',
+        'onSecondaryFixed': 'onSecondaryFixed',
+        'onSecondaryFixedVariant': 'onSecondaryFixedVariant',
+        'tertiary': 'tertiary',
+        'onTertiary': 'onTertiary',
+        'tertiaryContainer': 'tertiaryContainer',
+        'onTertiaryContainer': 'onTertiaryContainer',
+        'tertiaryFixed': 'tertiaryFixed',
+        'tertiaryFixedDim': 'tertiaryFixedDim',
+        'onTertiaryFixed': 'onTertiaryFixed',
+        'onTertiaryFixedVariant': 'onTertiaryFixedVariant',
+        'error': 'error',
+        'onError': 'onError',
+        'errorContainer': 'errorContainer',
+        'onErrorContainer': 'onErrorContainer',
+        'surface': 'surface',
+        'onSurface': 'onSurface',
+        'surfaceVariant': 'surfaceVariant',
+        'onSurfaceVariant': 'onSurfaceVariant',
+        'surfaceDim': 'surfaceDim',
+        'surfaceBright': 'surfaceBright',
+        'surfaceContainer': 'surfaceContainer',
+        'surfaceContainerLow': 'surfaceContainerLow',
+        'surfaceContainerHigh': 'surfaceContainerHigh',
+        'surfaceContainerHighest': 'surfaceContainerHighest',
+        'surfaceContainerLowest': 'surfaceContainerLowest',
+        'surfaceTint': 'surfaceTint',
+        'inverseSurface': 'inverseSurface',
+        'inverseOnSurface': 'inverseOnSurface',
+        'inversePrimary': 'inversePrimary',
+        'outline': 'outline',
+        'outlineVariant': 'outlineVariant',
+        'background': 'background',
+        'onBackground': 'onBackground',
+        'shadow': 'shadow',
+        'scrim': 'scrim',
+    }
+    
+    for color_name, dynamic_name in color_mappings.items():
+        try:
+            dynamic_color = getattr(dynamic_colors, dynamic_name)
+            argb = dynamic_color.get_argb(scheme)
+            # Convert ARGB to hex
+            r = (argb >> 16) & 0xFF
+            g = (argb >> 8) & 0xFF
+            b = argb & 0xFF
+            colors[color_name] = f"#{r:02x}{g:02x}{b:02x}"
+        except AttributeError:
+            # Fallback colors
+            if is_dark:
+                fallback_colors = {
+                    'primary': '#cb8a51',
+                    'onPrimary': '#4c2700',
+                    'secondary': '#b5957c',
+                    'tertiary': '#87521c',
+                    'error': '#ffb4ab',
+                    'surface': '#201812',
+                    'onSurface': '#efe0d5',
+                    'outline': '#9e8e82',
+                }
+            else:
+                fallback_colors = {
+                    'primary': '#8b5000',
+                    'onPrimary': '#ffffff',
+                    'secondary': '#6d5c45',
+                    'tertiary': '#533600',
+                    'error': '#ba1a1a',
+                    'surface': '#fff8f4',
+                    'onSurface': '#201812',
+                    'outline': '#857468',
+                }
+            colors[color_name] = fallback_colors.get(color_name, '#000000')
+    
+    return colors
+

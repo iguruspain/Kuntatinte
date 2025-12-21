@@ -151,6 +151,11 @@ DEFAULTS: dict[str, dict[str, Any]] = {
             "kuntatinte_color_scheme": 520,
         },
     },
+    "color_scheme": {
+        "chroma_multiplier": 1.0,
+        "tone_multiplier": 1.0,
+        "scheme_variant": 5,
+    },
 }
 
 
