@@ -150,8 +150,12 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "cache": {
         "cache_dir": "kuntatinte",
     },
+    "logging": {
+        "enabled": False,
+        "file": None,  # None means console output
+        "level": "INFO",
+    },
     "ui": {
-        "debug_ui": False,
         "left_panel_visible": True,
         "right_panel_visible": False,
         "min_height": 700,  # Minimum window height (matches initial height)
@@ -422,11 +426,6 @@ class Config:
     # =========================================================================
     
     @property
-    def debug_ui(self) -> bool:
-        """Enable UI debug logging and screenshots."""
-        return self.get("ui", "debug_ui", False)
-    
-    @property
     def left_panel_visible(self) -> bool:
         """Left panel visibility on startup."""
         return self.get("ui", "left_panel_visible", True)
@@ -447,6 +446,26 @@ class Config:
             return panel_width.get("fastfetch", 280)  # Default fallback
         
         return 280
+
+
+    # =========================================================================
+    # Logging Properties
+    # =========================================================================
+    
+    @property
+    def logging_enabled(self) -> bool:
+        """Whether logging is enabled."""
+        return self.get("logging", "enabled", False)
+    
+    @property
+    def logging_file(self) -> Optional[str]:
+        """Log file path. None means console output."""
+        return self.get("logging", "file", None)
+    
+    @property
+    def logging_level(self) -> str:
+        """Logging level (DEBUG, INFO, WARNING, ERROR)."""
+        return self.get("logging", "level", "INFO")
 
 
 # =============================================================================

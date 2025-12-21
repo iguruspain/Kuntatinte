@@ -55,7 +55,40 @@ Kuntatinte is a modern application for extracting color palettes from images usi
 
 ### Logging
 
-The application uses structured logging. Logs are written to the console with appropriate levels (INFO, DEBUG, ERROR, WARNING).
+The application uses structured logging. By default, logging is **disabled** to keep the console clean. You can enable it and configure where logs are written.
+
+#### Configuration Options
+
+Edit `~/.config/kuntatinte/config.toml` (an example file `config.toml.example` is provided):
+
+```toml
+[logging]
+enabled = true          # Enable/disable logging (default: false)
+file = "/path/to/logfile.log"  # Optional: log to file instead of console (default: null)
+level = "INFO"          # DEBUG, INFO, WARNING, ERROR, CRITICAL (default: "INFO")
+```
+
+**Examples:**
+
+```toml
+# Log to console (INFO level and above)
+[logging]
+enabled = true
+
+# Log to file (DEBUG level and above)
+[logging]
+enabled = true
+file = "~/.local/share/kuntatinte/debug.log"
+level = "DEBUG"
+
+# Log to file (WARNING level and above)
+[logging]
+enabled = true
+file = "/var/log/kuntatinte.log"
+level = "WARNING"
+```
+
+When `enabled = false` (default), **no output** is produced to keep the application silent.
 
 ### Contributing
 

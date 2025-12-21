@@ -450,10 +450,6 @@ Kirigami.ApplicationWindow {
                 root.width = root.width - minWallpapersWidth - separatorWidth
             }
         }
-        
-        // Take screenshot after UI updates
-        screenshotTimer.eventName = "left_panel_" + (leftPanelVisible ? "show" : "hide")
-        screenshotTimer.restart()
     }
     
     onRightPanelVisibleChanged: {
@@ -469,10 +465,6 @@ Kirigami.ApplicationWindow {
                 root.width = root.width - currentSettingsPanelWidth - separatorWidth
             }
         }
-        
-        // Take screenshot after UI updates
-        screenshotTimer.eventName = "right_panel_" + (rightPanelVisible ? "show" : "hide") + "_w" + root.width
-        screenshotTimer.restart()
     }
     
     // Track previous settings panel width for smooth transitions
@@ -498,26 +490,9 @@ Kirigami.ApplicationWindow {
             root.width = root.width + widthDiff
             isAutoCollapsing = false
             logUI("After resize: window.width=" + root.width)
-            
-            // Take screenshot after UI updates
-            screenshotTimer.eventName = "settings_" + currentSettingName.replace(" ", "_") + "_w" + root.width
-            screenshotTimer.restart()
         }
         // Update previous width for next change
         previousSettingsPanelWidth = newPanelWidth
-    }
-    
-    // Timer for delayed screenshots (allows UI to update first)
-    Timer {
-        id: screenshotTimer
-        interval: 300  // 300ms delay
-        repeat: false
-        property string eventName: ""
-        onTriggered: {
-            if (backend) {
-                backend.captureDebugScreenshot(eventName)
-            }
-        }
     }
     
     function calculateMinWidthForCurrentState() {

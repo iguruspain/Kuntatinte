@@ -25,11 +25,48 @@ import sys
 import logging
 from pathlib import Path
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Import config manager first to configure logging
+from core.config_manager import config
+
+# Configure logging based on config
+def setup_logging():
+    """Configure logging based on user configuration."""
+    if not config.logging_enabled:
+        # Disable all logging and redirect output to suppress any messages
+        logging.getLogger().setLevel(logging.CRITICAL + 1)
+        # Redirect stdout and stderr to /dev/null to suppress Qt/QML messages
+        import os
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
+        return
+    
+    # Map string levels to logging constants
+    level_map = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL
+    }
+    
+    level = level_map.get(config.logging_level.upper(), logging.INFO)
+    
+    if config.logging_file:
+        # Log to file
+        logging.basicConfig(
+            level=level,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            filename=config.logging_file,
+            filemode='a'  # Append mode
+        )
+    else:
+        # Log to console
+        logging.basicConfig(
+            level=level,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Configure Qt environment BEFORE importing PyQt6
@@ -66,6 +103,11 @@ def main() -> None:
     app.setApplicationName("Kuntatinte")
     app.setOrganizationName("PaletteTools")
     app.setOrganizationDomain("local")
+    
+    # Install Qt message handler if logging is enabled
+    if config.logging_enabled:
+        from PyQt6.QtCore import qInstallMessageHandler
+        qInstallMessageHandler(qt_message_handler)
     
     # Create QML engine
     engine = QQmlApplicationEngine()

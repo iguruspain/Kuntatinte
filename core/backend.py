@@ -107,12 +107,6 @@ class PaletteBackend(QObject):
     imageListChanged = pyqtSignal()
     systemImageListChanged = pyqtSignal()
     
-    # Properties exposed to QML
-    @pyqtProperty(bool, constant=True)
-    def debugUi(self) -> bool:
-        """Whether UI debug logging and screenshots are enabled."""
-        return config.debug_ui
-    
     def __init__(self, parent: Optional[QObject] = None) -> None:
         """Initialize the palette backend.
         
@@ -126,7 +120,6 @@ class PaletteBackend(QObject):
         self._image_list: list[str] = []
         self._system_image_list: list[str] = []
         self._current_folder: Optional[Path] = None
-        self._screenshot_counter = 0
         # Material You cache
         self._material_you_cache: dict[str, list[str]] = {}
         # No specific Pywal mode — use pywal module defaults
@@ -143,33 +136,6 @@ class PaletteBackend(QObject):
         
         # Load system wallpapers
         self.loadSystemWallpapers()
-    
-    # =========================================================================
-    # Debug / Screenshot Capture
-    # =========================================================================
-    
-    @pyqtSlot(str)
-    def captureDebugScreenshot(self, event_name: str) -> None:
-        """Capture a debug screenshot using spectacle.
-        
-        Only captures if debug_ui is enabled in config.
-        
-        Args:
-            event_name: Name of the event that triggered the screenshot
-        """
-        if not config.debug_ui:
-            return
-            
-        debug_dir = Path("/tmp/kuntatinte_debug")
-        debug_dir.mkdir(exist_ok=True)
-        self._screenshot_counter += 1
-        filename = f"{self._screenshot_counter:03d}_{event_name}.png"
-        filepath = debug_dir / filename
-        logger.info(f"[UI] Capturing screenshot: {filepath}")
-        subprocess.run(
-            ["spectacle", "-b", "-n", "-o", str(filepath)],
-            check=False
-        )
     
     # =========================================================================
     # Application Availability Checks
