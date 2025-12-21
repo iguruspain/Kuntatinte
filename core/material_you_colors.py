@@ -5,10 +5,8 @@ Extract seed colors from images using Material You's color quantization algorith
 Uses the materialyoucolor library for extracting visually pleasing accent colors.
 """
 
-from typing import List, Optional, Any, Iterable, cast
+from typing import List, Optional, Tuple, TYPE_CHECKING
 import logging
-
-logger = logging.getLogger(__name__)
 
 # Try to import materialyoucolor - it may not be installed
 try:
@@ -60,10 +58,10 @@ def argb_to_hex(argb: int) -> str:
     Returns:
         Hex color string (e.g., "#ff5500")
     """
-    r_val = (argb >> 16) & 0xFF
-    g_val = (argb >> 8) & 0xFF
-    b_val = argb & 0xFF
-    return f"#{r_val:02x}{g_val:02x}{b_val:02x}"
+    r = (argb >> 16) & 0xFF
+    g = (argb >> 8) & 0xFF
+    b = argb & 0xFF
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 
 def hex_to_argb(hex_color: str) -> int:
@@ -76,10 +74,10 @@ def hex_to_argb(hex_color: str) -> int:
         ARGB integer
     """
     hex_color = hex_color.lstrip('#')
-    r_val = int(hex_color[0:2], 16)
-    g_val = int(hex_color[2:4], 16)
-    b_val = int(hex_color[4:6], 16)
-    return (0xFF << 24) | (r_val << 16) | (g_val << 8) | b_val
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    return (0xFF << 24) | (r << 16) | (g << 8) | b
 
 
 def get_color_chroma(argb: int) -> float:
@@ -144,9 +142,7 @@ def extract_source_colors_from_image(image_path: str, max_colors: int = 7) -> Li
         
         # Get pixel data
         image_data = img.getdata()
-        # `Image.getdata()` returns an ImagingCore that isn't typed as Iterable in stubs;
-        # cast to Iterable[Any] so the type checker accepts conversion to list.
-        pixel_array = list(cast(Iterable[Any], image_data))
+        pixel_array = list(image_data)
         
         # Quantize colors using Material You's algorithm
         # Returns a dict of {argb: count}
@@ -185,8 +181,8 @@ def get_best_seed_color(image_path: str) -> Optional[str]:
     Returns:
         Hex color string of the best seed, or None
     """
-    best_colors = extract_source_colors_from_image(image_path, max_colors=1)
-    return best_colors[0] if best_colors else None
+    colors = extract_source_colors_from_image(image_path, max_colors=1)
+    return colors[0] if colors else None
 
 
 def extract_source_colors_with_info(image_path: str, max_colors: int = 7) -> List[dict]:
@@ -244,15 +240,15 @@ if __name__ == '__main__':
         print(f"\nMaterial You available: {is_available()}")
         sys.exit(1)
     
-    main_image_path = sys.argv[1]
+    image_path = sys.argv[1]
     
     if not is_available():
         print("Error: materialyoucolor and/or Pillow not installed")
         print("Install with: pip install materialyoucolor Pillow")
         sys.exit(1)
     
-    print(f"Extracting colors from: {main_image_path}")
-    colors = extract_source_colors_with_info(main_image_path)
+    print(f"Extracting colors from: {image_path}")
+    colors = extract_source_colors_with_info(image_path)
     
     if colors:
         print(f"\nFound {len(colors)} source colors:")
