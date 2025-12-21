@@ -613,10 +613,10 @@ Controls.ScrollView {
                 id: darkPreview
                 Layout.fillWidth: true
                 Layout.preferredHeight: 120
-                color: previewData && previewData.dark.window_bg ? previewData.dark.window_bg : "#1a1a1a"
+                color: previewData && previewData.dark && previewData.dark.window_bg ? previewData.dark.window_bg : "#1a1a1a"
                 radius: 8
                 border.width: 1
-                border.color: previewData && previewData.dark.button_bg ? previewData.dark.button_bg : "#333333"
+                border.color: previewData && previewData.dark && previewData.dark.button_bg ? previewData.dark.button_bg : "#333333"
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -626,7 +626,7 @@ Controls.ScrollView {
                     Controls.Label {
                         text: "Kuntatinte Dark"
                         font.bold: true
-                        color: previewData && previewData.dark.window_fg ? previewData.dark.window_fg : "#ffffff"
+                        color: previewData && previewData.dark && previewData.dark.window_fg ? previewData.dark.window_fg : "#ffffff"
                         font.pixelSize: 12
                     }
 
@@ -634,7 +634,7 @@ Controls.ScrollView {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        color: previewData && previewData.dark.window_bg ? previewData.dark.window_bg : "#2a2a2a"
+                        color: previewData && previewData.dark && previewData.dark.window_bg ? previewData.dark.window_bg : "#2a2a2a"
                         radius: 4
 
                         ColumnLayout {
@@ -646,13 +646,13 @@ Controls.ScrollView {
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 20
-                                color: previewData && previewData.dark.button_bg ? previewData.dark.button_bg : "#333333"
+                                color: previewData && previewData.dark && previewData.dark.button_bg ? previewData.dark.button_bg : "#333333"
                                 radius: 2
 
                                 Controls.Label {
                                     anchors.centerIn: parent
                                     text: "Window Title"
-                                    color: previewData && previewData.dark.button_fg ? previewData.dark.button_fg : "#ffffff"
+                                    color: previewData && previewData.dark && previewData.dark.button_fg ? previewData.dark.button_fg : "#ffffff"
                                     font.pixelSize: 10
                                 }
                             }
@@ -667,13 +667,13 @@ Controls.ScrollView {
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 40
-                                    color: previewData && previewData.dark.view_bg ? previewData.dark.view_bg : "#3a3a3a"
+                                    color: previewData && previewData.dark && previewData.dark.view_bg ? previewData.dark.view_bg : "#3a3a3a"
                                     radius: 2
 
                                     Controls.Label {
                                         anchors.centerIn: parent
                                         text: "Content text"
-                                        color: previewData && previewData.dark.view_fg ? previewData.dark.view_fg : "#cccccc"
+                                        color: previewData && previewData.dark && previewData.dark.view_fg ? previewData.dark.view_fg : "#cccccc"
                                         font.pixelSize: 9
                                     }
                                 }
@@ -688,13 +688,13 @@ Controls.ScrollView {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        color: previewData && previewData.dark.button_bg ? previewData.dark.button_bg : "#8899aa"
+                                        color: previewData && previewData.dark && previewData.dark.button_bg ? previewData.dark.button_bg : "#8899aa"
                                         radius: 2
 
                                         Controls.Label {
                                             anchors.centerIn: parent
                                             text: "OK"
-                                            color: previewData && previewData.dark.button_fg ? previewData.dark.button_fg : "#000000"
+                                            color: previewData && previewData.dark && previewData.dark.button_fg ? previewData.dark.button_fg : "#000000"
                                             font.pixelSize: 6
                                             font.bold: true
                                         }
@@ -704,13 +704,13 @@ Controls.ScrollView {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        color: previewData && previewData.dark.selection_bg ? previewData.dark.selection_bg : "#4a90e2"
+                                        color: previewData && previewData.dark && previewData.dark.selection_bg ? previewData.dark.selection_bg : "#4a90e2"
                                         radius: 2
 
                                         Controls.Label {
                                             anchors.centerIn: parent
                                             text: "Save"
-                                            color: previewData && previewData.dark.selection_fg ? previewData.dark.selection_fg : "#ffffff"
+                                            color: previewData && previewData.dark && previewData.dark.selection_fg ? previewData.dark.selection_fg : "#ffffff"
                                             font.pixelSize: 6
                                             font.bold: true
                                         }
@@ -727,10 +727,10 @@ Controls.ScrollView {
                 id: lightPreview
                 Layout.fillWidth: true
                 Layout.preferredHeight: 120
-                color: previewData && previewData.light.window_bg ? previewData.light.window_bg : "#f5f5f5"
+                color: previewData && previewData.light && previewData.light.window_bg ? previewData.light.window_bg : "#f5f5f5"
                 radius: 8
                 border.width: 1
-                border.color: previewData && previewData.light.button_bg ? previewData.light.button_bg : "#cccccc"
+                border.color: previewData && previewData.light && previewData.light.button_bg ? previewData.light.button_bg : "#cccccc"
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -740,7 +740,7 @@ Controls.ScrollView {
                     Controls.Label {
                         text: "Kuntatinte Light"
                         font.bold: true
-                        color: previewData && previewData.light.window_fg ? previewData.light.window_fg : "#000000"
+                        color: previewData && previewData.light && previewData.light.window_fg ? previewData.light.window_fg : "#000000"
                         font.pixelSize: 12
                     }
 
@@ -748,7 +748,7 @@ Controls.ScrollView {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        color: previewData && previewData.light.window_bg ? previewData.light.window_bg : "#e8e8e8"
+                        color: previewData && previewData.light && previewData.light.window_bg ? previewData.light.window_bg : "#e8e8e8"
                         radius: 4
 
                         ColumnLayout {
@@ -760,13 +760,13 @@ Controls.ScrollView {
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 20
-                                color: previewData && previewData.light.button_bg ? previewData.light.button_bg : "#d0d0d0"
+                                color: previewData && previewData.light && previewData.light.button_bg ? previewData.light.button_bg : "#d0d0d0"
                                 radius: 2
 
                                 Controls.Label {
                                     anchors.centerIn: parent
                                     text: "Window Title"
-                                    color: previewData && previewData.light.button_fg ? previewData.light.button_fg : "#000000"
+                                    color: previewData && previewData.light && previewData.light.button_fg ? previewData.light.button_fg : "#000000"
                                     font.pixelSize: 10
                                 }
                             }
@@ -781,13 +781,13 @@ Controls.ScrollView {
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 40
-                                    color: previewData && previewData.light.view_bg ? previewData.light.view_bg : "#c8c8c8"
+                                    color: previewData && previewData.light && previewData.light.view_bg ? previewData.light.view_bg : "#c8c8c8"
                                     radius: 2
 
                                     Controls.Label {
                                         anchors.centerIn: parent
                                         text: "Content text"
-                                        color: previewData && previewData.light.view_fg ? previewData.light.view_fg : "#333333"
+                                        color: previewData && previewData.light && previewData.light.view_fg ? previewData.light.view_fg : "#333333"
                                         font.pixelSize: 9
                                     }
                                 }
@@ -802,13 +802,13 @@ Controls.ScrollView {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        color: previewData && previewData.light.button_bg ? previewData.light.button_bg : "#667788"
+                                        color: previewData && previewData.light && previewData.light.button_bg ? previewData.light.button_bg : "#667788"
                                         radius: 2
 
                                         Controls.Label {
                                             anchors.centerIn: parent
                                             text: "OK"
-                                            color: previewData && previewData.light.button_fg ? previewData.light.button_fg : "#ffffff"
+                                            color: previewData && previewData.light && previewData.light.button_fg ? previewData.light.button_fg : "#ffffff"
                                             font.pixelSize: 6
                                             font.bold: true
                                         }
@@ -818,13 +818,13 @@ Controls.ScrollView {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        color: previewData && previewData.light.selection_bg ? previewData.light.selection_bg : "#4a90e2"
+                                        color: previewData && previewData.light && previewData.light.selection_bg ? previewData.light.selection_bg : "#4a90e2"
                                         radius: 2
 
                                         Controls.Label {
                                             anchors.centerIn: parent
                                             text: "Save"
-                                            color: previewData && previewData.light.selection_fg ? previewData.light.selection_fg : "#ffffff"
+                                            color: previewData && previewData.light && previewData.light.selection_fg ? previewData.light.selection_fg : "#ffffff"
                                             font.pixelSize: 6
                                             font.bold: true
                                         }
