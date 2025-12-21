@@ -67,4 +67,4 @@ The application uses structured logging. Logs are written to the console with ap
 
 ## License
 
-[Specify license]
+GPL-3.0
