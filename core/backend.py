@@ -440,7 +440,7 @@ class PaletteBackend(QObject):
         """Extract Material You source colors from an image (synchronous).
         
         These are the seed colors that Material You uses to generate
-        complete color schemes. Returns multiple options the user can choose from.
+        complete color schemes. Returns best colors like KDE Material You Colors.
         """
         def _worker():
             try:
@@ -451,7 +451,7 @@ class PaletteBackend(QObject):
                 colors = extract_source_colors_from_image(image_path, max_colors=7)
                 if colors:
                     colors_json = json.dumps(colors)
-                    logger.info(f"Material You source colors extracted ({len(colors)}): {colors}")
+                    logger.info(f"Material You source colors extracted: {colors}")
                     # Emit the fresh result (no caching)
                     self.sourceColorsExtracted.emit(colors_json)
                 else:

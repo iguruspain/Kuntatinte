@@ -38,7 +38,7 @@ except ImportError:
 
 # Score options for extracting multiple seed colors
 SCORE_OPTIONS_DICT = {
-    'desired': 7,  # Number of colors to extract (ANSI colors target)
+    'desired': 3,  # Number of colors to extract (matches kde-material-you-colors)
     'fallback_color_argb': 0xFF4285F4,  # Google Blue as fallback
     'filter': True,  # Avoid unsuitable colors
     'dislike_filter': True,  # Fix globally disliked colors
@@ -96,20 +96,35 @@ def get_color_chroma(argb: int) -> float:
     return hct.chroma
 
 
+def select_best_colors(colors: List[str], max_colors: int) -> List[str]:
+    """Select the best colors from a list, prioritizing high-quality accent colors.
+    
+    This ensures we return colors similar to what kde-material-you-colors would select.
+    """
+    if len(colors) <= max_colors:
+        return colors
+    
+    # For now, just return the first max_colors as they are already scored and sorted
+    # The Score algorithm already prioritizes the best colors
+    return colors[:max_colors]
+
+
 # =============================================================================
 # Material You Color Extraction
 # =============================================================================
 
-def extract_source_colors_from_image(image_path: str, max_colors: int = 7) -> List[str]:
+def extract_source_colors_from_image(image_path: str, max_colors: int = 3) -> List[str]:
     """Extract source colors from an image using Material You's algorithm.
     
     Uses QuantizeCelebi and Score from materialyoucolor to extract
     visually pleasing seed colors that can be used to generate
     Material You color schemes.
     
+    This implementation matches kde-material-you-colors algorithm.
+    
     Args:
         image_path: Path to the image file
-        max_colors: Maximum number of colors to extract (default: 7)
+        max_colors: Maximum number of colors to extract (default: 3)
     
     Returns:
         List of hex color strings, sorted by score (most pleasing first)
@@ -125,35 +140,37 @@ def extract_source_colors_from_image(image_path: str, max_colors: int = 7) -> Li
     assert Score is not None
     
     try:
-        # Open and resize image for faster processing
+        # Open image and resize proportionally (matching kde-material-you-colors)
         img = Image.open(image_path)
         
-        # Convert to RGBA if needed
+        # Resize image proportionally to basewidth=128 (matching kde-material-you-colors)
+        basewidth = 128
+        wpercent = basewidth / float(img.size[0])
+        hsize = int((float(img.size[1]) * float(wpercent)))
+        img = img.resize((basewidth, hsize), Image.Resampling.LANCZOS)
+        
+        # Convert to RGBA if needed (matching kde-material-you-colors)
         if img.mode == "RGB":
             img = img.convert("RGBA")
         elif img.mode != "RGBA":
+            logging.warning("Image not in RGB|RGBA format - Converting...")
             img = img.convert("RGBA")
         
-        # Resize to 64px width for speed (smaller = faster)
-        basewidth = 64
-        wpercent = basewidth / float(img.size[0])
-        hsize = int(float(img.size[1]) * float(wpercent))
-        img = img.resize((basewidth, hsize), Image.Resampling.NEAREST)
-        
-        # Get pixel data
+        # Get all pixels with quality=1 (like kde-material-you-colors)
+        pixel_len = img.width * img.height
         image_data = img.getdata()
-        pixel_array = list(image_data)
+        quality = 1
+        pixel_array = [image_data[_] for _ in range(0, pixel_len, quality)]
         
-        # Quantize colors using Material You's algorithm
-        # Returns a dict of {argb: count}
-        quantized = QuantizeCelebi(pixel_array, 64)
+        # Quantize colors using 128 colors (like kde-material-you-colors)
+        quantized = QuantizeCelebi(pixel_array, 128)
         
-        # Score and rank the colors
+        # Score with desired=7 (like kde-material-you-colors)
         score_options = ScoreOptions(
-            desired=max_colors,
-            fallback_color_argb=SCORE_OPTIONS_DICT['fallback_color_argb'],
-            filter=SCORE_OPTIONS_DICT['filter'],
-            dislike_filter=SCORE_OPTIONS_DICT['dislike_filter'],
+            desired=7,
+            fallback_color_argb=0xFF4285F4,  # Google Blue
+            filter=True,  # Avoid unsuitable colors
+            dislike_filter=True,  # Fix globally disliked colors
         )
         ranked_colors = Score.score(quantized, score_options)
         
