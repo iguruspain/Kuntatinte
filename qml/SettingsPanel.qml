@@ -50,6 +50,7 @@ Rectangle {
                 text: "Settings"
                 level: 2
                 anchors.left: parent.left
+                anchors.leftMargin: Kirigami.Units.largeSpacing
                 anchors.verticalCenter: parent.verticalCenter
                 width: 60
             }
@@ -57,7 +58,7 @@ Rectangle {
             Controls.ComboBox {
                 id: settingsComboBox
                 anchors.left: parent.left
-                anchors.leftMargin: 70
+                anchors.leftMargin: 70 + Kirigami.Units.largeSpacing
                 anchors.verticalCenter: parent.verticalCenter
                 width: 200
                 model: settingsPanel.availableSettings
@@ -95,7 +96,8 @@ Rectangle {
                     case "Fastfetch": return 0
                     case "Starship": return 1
                     case "Ulauncher": return 2
-                    case "Kuntatinte Color Scheme": return 3
+                    case "OpenRGB": return 3
+                    case "Kuntatinte Color Scheme": return 4
                     default: return 0
                 }
             }
@@ -104,6 +106,7 @@ Rectangle {
             Settings.FastfetchSettings {}
             Settings.StarshipSettings {}
             Settings.UlauncherSettings {}
+            Settings.OpenRGBSettings {}
             Settings.KuntatinteColorSchemeSettings {}
         }
     }

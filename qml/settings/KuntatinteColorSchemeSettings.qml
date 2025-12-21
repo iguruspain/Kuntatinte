@@ -417,29 +417,26 @@ Controls.ScrollView {
                 text: "Scheme Variant:"
             }
 
-            Controls.ComboBox {
-                id: schemeVariantCombo
+            Controls.Slider {
+                id: schemeVariantSlider
                 Layout.fillWidth: true
-                textRole: "text"
-                valueRole: "value"
-                model: schemeVariantsModel
-                currentIndex: {
-                    for (var i = 0; i < schemeVariantsModel.count; i++) {
-                        if (schemeVariantsModel.get(i).value === kdeSettings2.schemeVariant) {
-                            return i
-                        }
-                    }
-                    return 5 // TonalSpot default
-                }
+                from: 0
+                to: 8
+                stepSize: 1
+                value: kdeSettings2.schemeVariant
+                snapMode: Controls.Slider.SnapAlways
 
-                onCurrentIndexChanged: {
-                    if (currentIndex >= 0) {
-                        var variant = schemeVariantsModel.get(currentIndex)
-                        kdeSettings2.schemeVariant = variant.value
-                        backend.setConfigValue("color_scheme", "scheme_variant", variant.value)
-                        updatePreview()
-                    }
+                onValueChanged: {
+                    kdeSettings2.schemeVariant = value
+                    backend.setConfigValue("color_scheme", "scheme_variant", value)
+                    updatePreview()
                 }
+            }
+
+            Controls.Label {
+                text: schemeVariantsModel.get(schemeVariantSlider.value).text
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 6
+                horizontalAlignment: Text.AlignHCenter
             }
 
             Item { Layout.fillWidth: true }

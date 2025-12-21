@@ -4,4 +4,5 @@ SubtleSeparator 1.0 SubtleSeparator.qml
 FastfetchSettings 1.0 FastfetchSettings.qml
 StarshipSettings 1.0 StarshipSettings.qml
 UlauncherSettings 1.0 UlauncherSettings.qml
+OpenRGBSettings 1.0 OpenRGBSettings.qml
 KuntatinteColorSchemeSettings 1.0 KuntatinteColorSchemeSettings.qml

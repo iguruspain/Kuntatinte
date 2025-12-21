@@ -118,6 +118,10 @@ Kirigami.ApplicationWindow {
     property string fastfetchPreviewOriginal: ""  // Original logo preview URL
     property string fastfetchPreviewTinted: ""  // Tinted preview URL
     
+    // OpenRGB colors
+    property string openrgbAccent: ""
+    property string openrgbAccentSource: ""
+    
     // Ulauncher colors
     property string ulauncherBgColor: ""
     property int ulauncherBgOpacity: 100

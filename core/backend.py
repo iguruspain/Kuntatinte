@@ -96,6 +96,11 @@ def is_starship_installed() -> bool:
     return is_command_available("starship")
 
 
+def is_openrgb_installed() -> bool:
+    """Check if openrgb is installed."""
+    return is_command_available("openrgb")
+
+
 class PaletteBackend(QObject):
     """Backend that exposes application logic to QML."""
     
@@ -165,6 +170,8 @@ class PaletteBackend(QObject):
             available.append("Starship")
         if is_ulauncher_installed():
             available.append("Ulauncher")
+        if is_openrgb_installed():
+            available.append("OpenRGB")
         available.append("Kuntatinte Color Scheme")
         return available
     
@@ -710,7 +717,28 @@ class PaletteBackend(QObject):
             logger.error(f"Error applying fastfetch accent: {message}")
             return message
     
-    @pyqtSlot(result='QString')
+    # OpenRGB Integration
+    # =========================================================================
+    
+    @pyqtSlot(str, result='QString')
+    def applyOpenRGB(self, accent: str) -> str:
+        """Apply accent color to OpenRGB.
+        
+        Returns:
+            Empty string on success, error message on failure.
+        """
+        from integrations.openrgb import apply_openrgb_accent
+        
+        if not accent:
+            return "No accent color provided"
+        
+        success, message = apply_openrgb_accent(accent)
+        if success:
+            logger.info(f"OpenRGB accent applied: {accent}")
+            return ""
+        else:
+            logger.error(f"Error applying OpenRGB accent: {message}")
+            return message
     def restoreFastfetchOriginal(self) -> str:
         """Restore fastfetch logo from backup.
         
