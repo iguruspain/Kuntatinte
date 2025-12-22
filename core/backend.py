@@ -333,20 +333,19 @@ class PaletteBackend(QObject):
         return hex_colors
     
     def _extract_colors_pywal(self, image_path: str) -> list:
-        """Extract colors using pywal from cache or by generating new ones."""
-        # Prefer the Python API integration; fall back will raise and be handled by the caller.
+        """Extract colors using pywal."""
+        logger.info(f"Extracting colors with pywal from {image_path}")
         try:
             colors = pywal_generate_palette(image_path, cols=16)
+            logger.info(f"Pywal extracted {len(colors) if colors else 0} colors")
             if not colors:
                 self.extractionError.emit("Pywal returned no colors")
                 return []
             # Normalize to hex strings for the rest of the pipeline
             return self._normalize_colors_to_hex(colors)
         except Exception as e:
-            msg = str(e)
-            if 'no está instalado' in msg or 'wal (pywal CLI) no está instalado' in msg or 'pywal no está instalado' in msg:
-                msg = msg + ". Instale con: pip install pywal"
-            self.extractionError.emit(msg)
+            logger.error(f"Pywal extraction failed: {e}")
+            self.extractionError.emit(f"Pywal failed: {str(e)}")
             return []
     
     def _extract_colors_kde_material_you(self, image_path: str) -> list:

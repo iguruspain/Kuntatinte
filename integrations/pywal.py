@@ -109,48 +109,25 @@ def generate_palette(image_path: str, _mode: str = 'auto', cols: int = 16, _time
     Raises:
         RuntimeError si pywal no está disponible o si hay un error.
     """
+    import subprocess
+    import os
+    from pathlib import Path
+
     img = str(Path(image_path))
 
-    # Try to use the pywal API if it's installed
+    # Use pywal Python module instead of binary
     try:
         import pywal  # type: ignore
     except Exception as e:
         raise RuntimeError("pywal is not installed in the virtual environment") from e
 
-    # Different versions of pywal expose different entry points.
-    # We will use only the `pywal` module API. No fallback to CLI.
-    colors: List[str] = []
-    # pywal.colors.get or pywal.colors.get_colors
-    if hasattr(pywal, 'colors'):
-        colors_mod = pywal.colors
-        if hasattr(colors_mod, 'get'):
-            try:
-                res = colors_mod.get(img, colors=cols)
-                parsed = _parse_colors_from_pywal_result(res)
-                if parsed:
-                    colors = parsed
-            except TypeError:
-                # different signature; try with minimal parameters
-                res = colors_mod.get(img)
-                parsed = _parse_colors_from_pywal_result(res)
-                if parsed:
-                    colors = parsed
-
-        if hasattr(colors_mod, 'get_colors') and not colors:
-            res = colors_mod.get_colors(img)
-            parsed = _parse_colors_from_pywal_result(res)
-            if parsed:
-                colors = parsed
-
-    # Check other entry points in the pywal module
-    if not colors and hasattr(pywal, 'wal') and hasattr(pywal.wal, 'colors'):
-        res = pywal.wal.colors(img)
-        parsed = _parse_colors_from_pywal_result(res)
+    # Use pywal.colors.get
+    try:
+        result = pywal.colors.get(img)
+        parsed = _parse_colors_from_pywal_result(result)
         if parsed:
-            colors = parsed
+            return parsed
+    except Exception as e:
+        raise RuntimeError(f"pywal failed: {e}")
 
-    if not colors:
-        raise RuntimeError("pywal API no devolvió una paleta. Asegúrate de tener instalado 'pywal' y que la versión exponga la API de colores.")
-
-    # Devolver la paleta tal cual la proporciona la API de pywal
-    return colors
+    raise RuntimeError("pywal API no devolvió una paleta.")

@@ -104,6 +104,8 @@ Kirigami.ApplicationWindow {
             backend.generateMaterialYouPaletteFromSeeds(root.sourceColors, root.paletteMode, seedIndex, sliderPercent)
         } else if (root.extractionMethod === "ImageMagick" && root.selectedImagePath !== "") {
             backend.extractColors(root.selectedImagePath, root.extractionMethod, root.paletteMode)
+        } else if (root.extractionMethod === "Pywal" && root.selectedImagePath !== "") {
+            backend.extractColors(root.selectedImagePath, root.extractionMethod, root.paletteMode)
         }
     }
     
