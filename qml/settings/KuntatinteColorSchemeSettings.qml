@@ -628,10 +628,10 @@ Controls.ScrollView {
                 id: darkPreview
                 Layout.fillWidth: true
                 Layout.preferredHeight: 120
-                color: previewData && previewData.dark && previewData.dark.window_bg ? previewData.dark.window_bg : "#1a1a1a"
+                color: previewData && previewData.dark && previewData.dark.window_bg ? previewData.dark.window_bg : Kirigami.Theme.backgroundColor
                 radius: 8
                 border.width: 1
-                border.color: previewData && previewData.dark && previewData.dark.button_bg ? previewData.dark.button_bg : "#333333"
+                border.color: previewData && previewData.dark && previewData.dark.button_bg ? previewData.dark.button_bg : Kirigami.Theme.alternateBackgroundColor
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -641,7 +641,7 @@ Controls.ScrollView {
                     Controls.Label {
                         text: "Kuntatinte Dark"
                         font.bold: true
-                        color: previewData && previewData.dark && previewData.dark.window_fg ? previewData.dark.window_fg : "#ffffff"
+                        color: previewData && previewData.dark && previewData.dark.window_fg ? previewData.dark.window_fg : Kirigami.Theme.textColor
                         font.pixelSize: 12
                     }
 
@@ -719,7 +719,7 @@ Controls.ScrollView {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        color: previewData && previewData.dark && previewData.dark.selection_bg ? previewData.dark.selection_bg : "#4a90e2"
+                                        color: previewData && previewData.dark && previewData.dark.selection_bg ? previewData.dark.selection_bg : Kirigami.Theme.highlightColor
                                         radius: 2
 
                                         Controls.Label {
@@ -742,10 +742,10 @@ Controls.ScrollView {
                 id: lightPreview
                 Layout.fillWidth: true
                 Layout.preferredHeight: 120
-                color: previewData && previewData.light && previewData.light.window_bg ? previewData.light.window_bg : "#f5f5f5"
+                color: previewData && previewData.light && previewData.light.window_bg ? previewData.light.window_bg : Kirigami.Theme.backgroundColor
                 radius: 8
                 border.width: 1
-                border.color: previewData && previewData.light && previewData.light.button_bg ? previewData.light.button_bg : "#cccccc"
+                border.color: previewData && previewData.light && previewData.light.button_bg ? previewData.light.button_bg : Kirigami.Theme.alternateBackgroundColor
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -755,7 +755,7 @@ Controls.ScrollView {
                     Controls.Label {
                         text: "Kuntatinte Light"
                         font.bold: true
-                        color: previewData && previewData.light && previewData.light.window_fg ? previewData.light.window_fg : "#000000"
+                        color: previewData && previewData.light && previewData.light.window_fg ? previewData.light.window_fg : Kirigami.Theme.textColor
                         font.pixelSize: 12
                     }
 
@@ -833,7 +833,7 @@ Controls.ScrollView {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        color: previewData && previewData.light && previewData.light.selection_bg ? previewData.light.selection_bg : "#4a90e2"
+                                        color: previewData && previewData.light && previewData.light.selection_bg ? previewData.light.selection_bg : Kirigami.Theme.highlightColor
                                         radius: 2
 
                                         Controls.Label {

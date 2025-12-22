@@ -150,17 +150,64 @@ ColumnLayout {
                 readonly property real imageY: (height - paintedHeight) / 2
             }
             
-            // Button positioned over the image
-            Controls.ToolButton {
+            // Floating button container: background + shadow as siblings so ToolButton
+            // retains default icon rendering from the theme.
+            Item {
+                id: setWallpaperContainer
+                width: 32
+                height: 28
                 x: previewImage.imageX + previewImage.paintedWidth - width - Kirigami.Units.smallSpacing
                 y: previewImage.imageY + previewImage.paintedHeight - height - Kirigami.Units.smallSpacing
                 visible: root.selectedImagePath !== "" && previewImage.status === Image.Ready && !root.isCurrentWallpaper
-                z: 20  // High z-index to ensure it's on top
-                icon.name: "viewimage"
-                Controls.ToolTip.text: "Set as desktop wallpaper"
-                Controls.ToolTip.visible: hovered
-                
-                onClicked: { if (backend) backend.setAsWallpaper(root.selectedImagePath) }
+                z: 20
+
+                // Shadow (theme-aware) — slightly larger and offset so corners blend
+                Rectangle {
+                    anchors.fill: parent
+                    x: -1
+                    y: 1
+                    width: parent.width + 2
+                    height: parent.height + 2
+                    radius: 6
+                    color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.12)
+                    z: 0
+                }
+
+                // Background (use theme background colour exactly, fully opaque)
+                Rectangle {
+                    id: setBtnBg
+                    anchors.centerIn: parent
+                    width: parent.width - 2
+                    height: parent.height - 2
+                    radius: 5
+                    color: Kirigami.Theme.backgroundColor
+                    opacity: 1
+                    border.color: "transparent"
+                    z: 1
+                }
+
+                Controls.ToolButton {
+                    id: setWallpaperToolButton
+                    anchors.fill: setBtnBg
+                    icon.name: "viewimage"
+                    Controls.ToolTip.text: "Set as desktop wallpaper"
+                    Controls.ToolTip.visible: hovered
+                    onClicked: { if (backend) backend.setAsWallpaper(root.selectedImagePath) }
+                    z: 3
+                    // Compact icon
+                    icon.width: 16
+                    icon.height: 16
+                }
+
+                // Hover overlay (uses actual ToolButton hovered state)
+                Rectangle {
+                    anchors.fill: setBtnBg
+                    radius: setBtnBg.radius
+                    color: Kirigami.Theme.highlightColor
+                    opacity: setWallpaperToolButton.hovered ? 0.12 : 0
+                    z: 2
+                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                }
             }
             
             Controls.Label {
@@ -407,10 +454,10 @@ ColumnLayout {
                     Layout.fillWidth: true
                     Layout.maximumWidth: (paletteColumn.width - 7 * 4) / 8
                     Layout.preferredHeight: 32
-                    color: root.extractedAccent || "#3daee9"
+                    color: root.extractedAccent || Kirigami.Theme.linkColor
                     border.color: root.selectedSwatchIndex === -2 ?
                         Kirigami.Theme.highlightColor : 
-                        Qt.darker(root.extractedAccent || "#3daee9", 1.3)
+                        Qt.darker(root.extractedAccent || Kirigami.Theme.linkColor, 1.3)
                     border.width: root.selectedSwatchIndex === -2 ? 3 : 1
                     radius: 4
                     

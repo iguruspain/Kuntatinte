@@ -45,7 +45,7 @@ Controls.Dialog {
         spacing: Kirigami.Units.smallSpacing
 
         Controls.Label {
-            text: "Generate autogen for current palette mode: <b><font color='" + (paletteMode === "dark" ? "#ff6b6b" : "#4ecdc4") + "'>" + paletteMode.toUpperCase() + "</font></b>"
+            text: "Generate autogen for current palette mode: <b><font color='" + (paletteMode === "dark" ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.linkColor) + "'>" + paletteMode.toUpperCase() + "</font></b>"
             textFormat: Text.RichText
         }
 
