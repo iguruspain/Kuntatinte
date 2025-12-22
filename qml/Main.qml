@@ -28,6 +28,7 @@ Kirigami.ApplicationWindow {
     Component.onCompleted: {
         loadKdeColors()
         loadConfigColors()
+        loadCurrentWallpaper()
     }
     
     // =========================================================================
@@ -43,6 +44,7 @@ Kirigami.ApplicationWindow {
     property var baseSourceColors: []  // Original source colors before variants
     property var sourceColors: []  // Material You source colors (with variants applied)
     property string selectedImagePath: ""
+    property bool isCurrentWallpaper: false  // Indicates if selected image is the current desktop wallpaper
     property string wallpaperSource: "user"  // "user" or "system"
     
     // Material You source colors as individual properties (avoids QVariantList binding issues)
@@ -210,7 +212,16 @@ Kirigami.ApplicationWindow {
     // =========================================================================
     
     // Reset all settings colors when image changes (no auto-extraction)
-    onSelectedImagePathChanged: resetSettingsColors()
+    onSelectedImagePathChanged: {
+        resetSettingsColors()
+        // Check if selected image is the current wallpaper
+        if (selectedImagePath !== "") {
+            var currentWallpaper = backend.getCurrentWallpaper()
+            isCurrentWallpaper = (selectedImagePath === currentWallpaper)
+        } else {
+            isCurrentWallpaper = false
+        }
+    }
     
     function resetSettingsColors() {
         // Reset extracted palette
@@ -394,6 +405,17 @@ Kirigami.ApplicationWindow {
         var openrgbAccent = backend.getConfigValue("openrgb", "accent", "")
         root.openrgbAccent = openrgbAccent.replace("#", "")
         root.openrgbAccentSource = root.openrgbAccent ? "config" : ""
+    }
+    
+    function loadCurrentWallpaper() {
+        // Load current desktop wallpaper as default image
+        var currentWallpaper = backend.getCurrentWallpaper()
+        if (currentWallpaper && currentWallpaper !== "") {
+            root.selectedImagePath = currentWallpaper
+            root.isCurrentWallpaper = true
+            // Optionally trigger color extraction automatically
+            // backend.extractColors(currentWallpaper, root.extractionMethod, root.paletteMode)
+        }
     }
     
     function loadKdeColorsFromScheme(schemeName) {

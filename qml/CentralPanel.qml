@@ -70,7 +70,12 @@ ColumnLayout {
                     text: {
                         if (!root.selectedImagePath) return "No image selected"
                         var parts = root.selectedImagePath.split("/")
-                        return parts[parts.length - 1]
+                        var filename = parts[parts.length - 1]
+                        if (root.isCurrentWallpaper) {
+                            return filename + " (current wallpaper)"
+                        } else {
+                            return filename
+                        }
                     }
                     level: 2
                     Layout.fillWidth: true
@@ -145,14 +150,16 @@ ColumnLayout {
                 readonly property real imageY: (height - paintedHeight) / 2
             }
             
+            // Button positioned over the image
             Controls.ToolButton {
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.rightMargin: Kirigami.Units.smallSpacing
-                anchors.bottomMargin: Kirigami.Units.smallSpacing
-                visible: root.selectedImagePath !== "" && previewImage.status === Image.Ready
+                x: previewImage.imageX + previewImage.paintedWidth - width - Kirigami.Units.smallSpacing
+                y: previewImage.imageY + previewImage.paintedHeight - height - Kirigami.Units.smallSpacing
+                visible: root.selectedImagePath !== "" && previewImage.status === Image.Ready && !root.isCurrentWallpaper
+                z: 20  // High z-index to ensure it's on top
                 icon.name: "viewimage"
-                Controls.ToolTip.text: "Apply Wallpaper"
+                Controls.ToolTip.text: "Set as desktop wallpaper"
+                Controls.ToolTip.visible: hovered
+                
                 onClicked: { if (backend) backend.setAsWallpaper(root.selectedImagePath) }
             }
             

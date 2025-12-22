@@ -676,6 +676,48 @@ class PaletteBackend(QObject):
         except Exception as e:
             logger.error(f"Error setting wallpaper via qdbus: {e}")
     
+    @pyqtSlot(result='QString')
+    def getCurrentWallpaper(self) -> str:
+        """Get the current desktop wallpaper path."""
+        try:
+            # Use qdbus6 to get current wallpaper from PlasmaShell
+            script = '''
+            var ds = desktops();
+            for (let i = 0; i < ds.length; i++) {
+                if (ds[i].screen == 0) {
+                    ds[i].currentConfigGroup = Array("Wallpaper", ds[i].wallpaperPlugin, "General");
+                    if (ds[i].wallpaperPlugin == "org.kde.image") {
+                        print(ds[i].readConfig("Image").replace("file://", ""));
+                    }
+                }
+            }
+            '''
+            
+            result = subprocess.run([
+                'qdbus6', 'org.kde.plasmashell', '/PlasmaShell',
+                'org.kde.PlasmaShell.evaluateScript', script
+            ], capture_output=True, text=True, timeout=5)
+            
+            wallpaper_path = result.stdout.strip()
+            
+            # Check if file exists
+            if wallpaper_path and Path(wallpaper_path).exists():
+                logger.info(f"Current wallpaper found: {wallpaper_path}")
+                return wallpaper_path
+            else:
+                logger.debug(f"Wallpaper path not found or doesn't exist: {wallpaper_path}")
+                return ""
+                
+        except subprocess.TimeoutExpired:
+            logger.debug("qdbus6 command timed out")
+            return ""
+        except FileNotFoundError:
+            logger.debug("qdbus6 not found")
+            return ""
+        except Exception as e:
+            logger.debug(f"Error getting current wallpaper: {e}")
+            return ""
+    
     # =========================================================================
     # Starship Integration
     # =========================================================================

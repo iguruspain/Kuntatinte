@@ -158,6 +158,7 @@ Rectangle {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 root.selectedImagePath = modelData
+                                root.isCurrentWallpaper = false
                             }
                         }
                     }
