@@ -44,6 +44,10 @@ ColumnLayout {
                     root.ulauncherWhenSelected = value
                 } else if (key === "when_not_selected") {
                     root.ulauncherWhenNotSelected = value
+                } else if (key === "background_color_opacity") {
+                    root.ulauncherBgOpacity = parseInt(value)
+                } else if (key === "border_color_opacity") {
+                    root.ulauncherBorderOpacity = parseInt(value)
                 }
             }
         }

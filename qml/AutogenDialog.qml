@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import QtQuick.Window
 
 /*
   AutogenDialog.qml
@@ -22,6 +23,9 @@ Controls.Dialog {
     property string autogenStatus: ""
     property string autogenPaletteMode: ""
     property var autogenGenerated: []
+
+    // UI state
+    property bool jsonPreviewExpanded: false
 
     // Backend object must be set by the parent (CentralPanel)
     property var backend: null
@@ -49,7 +53,7 @@ Controls.Dialog {
             spacing: Kirigami.Units.smallSpacing
 
             Controls.Button {
-                text: "Generate"
+                text: "Generate (also colors)"
                 onClicked: {
                     if (busyIndicator) busyIndicator.visible = true
                     if (backend) {
@@ -60,11 +64,38 @@ Controls.Dialog {
                             rootDialog.autogenStatus = obj.status || ""
                             rootDialog.autogenPaletteMode = obj.palette_mode || ""
                             rootDialog.autogenGenerated = Object.keys(obj.generated || {})
+                            jsonPreviewExpanded = true
                         } catch (e) {
                             rootDialog.autogenText = (res === undefined || res === null) ? "" : String(res)
                             rootDialog.autogenStatus = ""
                             rootDialog.autogenPaletteMode = ""
                             rootDialog.autogenGenerated = []
+                            jsonPreviewExpanded = true
+                        }
+                    }
+                    if (busyIndicator) busyIndicator.visible = false
+                }
+            }
+
+            Controls.Button {
+                text: "Generate (current colors)"
+                onClicked: {
+                    if (busyIndicator) busyIndicator.visible = true
+                    if (backend) {
+                        var res = backend.runAutogenCurrentColors(paletteMode, primaryColor, accentColor)
+                        try {
+                            var obj = JSON.parse(res)
+                            rootDialog.autogenText = JSON.stringify(obj, null, 2)
+                            rootDialog.autogenStatus = obj.status || ""
+                            rootDialog.autogenPaletteMode = obj.palette_mode || ""
+                            rootDialog.autogenGenerated = Object.keys(obj.generated || {})
+                            jsonPreviewExpanded = true
+                        } catch (e) {
+                            rootDialog.autogenText = (res === undefined || res === null) ? "" : String(res)
+                            rootDialog.autogenStatus = ""
+                            rootDialog.autogenPaletteMode = ""
+                            rootDialog.autogenGenerated = []
+                            jsonPreviewExpanded = true
                         }
                     }
                     if (busyIndicator) busyIndicator.visible = false
@@ -72,24 +103,73 @@ Controls.Dialog {
             }
         }
 
-        Controls.Label { text: "Autogen output (preview):" }
-
-        RowLayout {
-            spacing: Kirigami.Units.smallSpacing
-            Controls.Label { text: "Status: " + (rootDialog.autogenStatus || "-") }
-            Controls.Label { text: "Mode: " + (rootDialog.autogenPaletteMode || "-") }
-            Controls.Label { text: "Generated: " + (rootDialog.autogenGenerated.length > 0 ? rootDialog.autogenGenerated.join(", ") : "-") }
-        }
-
-        Controls.ScrollView {
+        ColumnLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 220
-            Controls.TextArea {
-                id: autogenOutput
-                readOnly: true
-                wrapMode: Text.WrapAnywhere
-                text: rootDialog.autogenText
-                font.family: "monospace"
+            spacing: 0
+            
+            // Collapsible JSON Preview section (following app pattern)
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Kirigami.Units.smallSpacing
+
+                Controls.Label {
+                    text: "JSON Preview"
+                    font.bold: true
+                    Layout.preferredWidth: 120
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Controls.ToolButton {
+                    id: jsonPreviewToggle
+                    icon.name: rootDialog.autogenText.length > 0 ? (jsonPreviewExpanded ? "arrow-down" : "arrow-right") : "arrow-right"
+                    enabled: rootDialog.autogenText.length > 0
+                    Controls.ToolTip.text: jsonPreviewExpanded ? "Collapse" : "Expand"
+                    onClicked: {
+                        jsonPreviewExpanded = !jsonPreviewExpanded
+                    }
+                }
+            }
+            
+            // Container for ScrollView with copy button overlay
+            Item {
+                visible: jsonPreviewExpanded
+                Layout.fillWidth: true
+                Layout.preferredHeight: 220
+                
+                Controls.ScrollView {
+                    id: jsonScrollView
+                    anchors.fill: parent
+                    clip: true
+                    
+                    Controls.TextArea {
+                        id: jsonTextArea
+                        readOnly: true
+                        wrapMode: Text.WrapAnywhere
+                        text: rootDialog.autogenText
+                        font.family: "monospace"
+                    }
+                }
+                
+                // Copy button positioned in top-right corner, next to scrollbar (not overlapping)
+                Controls.ToolButton {
+                    visible: rootDialog.autogenText.length > 0
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.rightMargin: 20 // Close to scrollbar but not overlapping
+                    anchors.topMargin: Kirigami.Units.smallSpacing
+                    icon.name: "edit-copy"
+                    implicitWidth: 24
+                    implicitHeight: 24
+                    Controls.ToolTip.text: "Copy JSON to clipboard"
+                    Controls.ToolTip.visible: hovered
+                    onClicked: {
+                        jsonTextArea.selectAll()
+                        jsonTextArea.copy()
+                        jsonTextArea.deselect()
+                        root.showPassiveNotification("JSON copied to clipboard")
+                    }
+                }
             }
         }
 
@@ -98,7 +178,7 @@ Controls.Dialog {
             spacing: Kirigami.Units.smallSpacing
 
             Controls.Button {
-                text: "Save Dump"
+                text: "Save JSON"
                 enabled: rootDialog.autogenText.length > 0
                 onClicked: {
                     if (busyIndicator) busyIndicator.visible = true
@@ -111,7 +191,7 @@ Controls.Dialog {
             }
 
             Controls.Button {
-                text: "Export"
+                text: "Load values"
                 enabled: rootDialog.autogenText.length > 0
                 onClicked: {
                     if (busyIndicator) busyIndicator.visible = true
@@ -125,11 +205,6 @@ Controls.Dialog {
                     }
                     if (busyIndicator) busyIndicator.visible = false
                 }
-            }
-
-            Controls.Button {
-                text: "Cancel"
-                onClicked: rootDialog.close()
             }
         }
     }

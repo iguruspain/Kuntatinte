@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Igu R. Spain
+# Copyright (C) 2025 iguruspain
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -165,7 +165,7 @@ def format_kde_color(hex_color: str, opacity: float = 1.0, always_rgba: bool = T
     else:
         return "0,0,0,255" if always_rgba else "0,0,0"
 
-    a = int(opacity * 255)
+    a = round(opacity * 255)
 
     if always_rgba:
         return f"{r},{g},{b},{a}"

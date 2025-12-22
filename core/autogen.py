@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Igu R. Spain
+# Copyright (C) 2025 iguruspain
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,15 +24,15 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from integrations.kuntatinte_colors import generate_and_save_kuntatinte_schemes, parse_scheme_file
+from integrations.kuntatinte_colors import generate_and_save_kuntatinte_schemes, parse_scheme_file, get_scheme_file_path
 from core.config_manager import config
 from core.color_utils import get_best_contrast
 
 logger = logging.getLogger(__name__)
 
 
-def _extract_color_from_scheme(scheme_path: Path, section: str, key: str) -> Optional[str]:
-    """Extract a color from a KDE color scheme file.
+def _extract_color_from_scheme(scheme_path: Path, section: str, key: str) -> tuple[Optional[str], float]:
+    """Extract a color and opacity from a KDE color scheme file.
     
     Args:
         scheme_path: Path to the .colors file
@@ -40,7 +40,7 @@ def _extract_color_from_scheme(scheme_path: Path, section: str, key: str) -> Opt
         key: Key name (e.g., 'BackgroundNormal')
     
     Returns:
-        Hex color string or None if not found
+        Tuple of (hex color string, opacity 0.0-1.0) or (None, 1.0) if not found
     """
     try:
         config = configparser.ConfigParser()
@@ -49,17 +49,26 @@ def _extract_color_from_scheme(scheme_path: Path, section: str, key: str) -> Opt
         if config.has_section(section) and config.has_option(section, key):
             value = config.get(section, key)
             logger.info(f"Read from {scheme_path} [{section}] {key} = {value}")
-            # Parse RGB values like "191,173,160"
+            # Parse RGB/RGBA values like "191,173,160" or "191,173,160,255"
             if ',' in value:
                 parts = value.split(',')
                 if len(parts) >= 3:
                     r, g, b = map(int, parts[:3])
                     hex_color = f"#{r:02x}{g:02x}{b:02x}"
-                    logger.info(f"Parsed to hex: {hex_color}")
-                    return hex_color
+                    
+                    # Check for alpha (4th value)
+                    if len(parts) >= 4:
+                        alpha = int(parts[3])
+                        opacity = alpha / 255.0
+                    else:
+                        opacity = 1.0
+                    
+                    logger.info(f"Parsed to hex: {hex_color}, opacity: {opacity}")
+                    return hex_color, opacity
     except Exception as e:
         logger.error(f"Error extracting color from scheme {scheme_path}: {e}")
-    return None
+    
+    return None, 1.0
 
 
 def _get_better_contrast_color(base_color: str, group_colors: list) -> str:
@@ -146,40 +155,19 @@ def lighter_color(colors: Dict[str, str]) -> Optional[str]:
     # Placeholder implementation
     return next(iter(colors.values()), None)
 
-def run_autogen(test_mode: bool = True, palette_mode: Optional[str] = None, palette: Optional[list[str]] = None, primary_index: int = 0, accent_override: str = "", primary_color: str = "") -> str:
+def run_autogen(palette_mode: Optional[str] = None, palette: Optional[list[str]] = None, primary_index: int = 0, accent_override: str = "", primary_color: str = "") -> str:
     """Run autogen generation.
 
     Generates color configurations for integrated applications based on 
     Kuntatinte color schemes and autogen rules.
 
     Args:
-        test_mode: If True, use test data. If False, generate real configs.
         palette_mode: "dark" or "light" mode for generation.
 
     Returns:
         JSON string with generated data or error information.
     """
     try:
-        if test_mode:
-            # Test mode: return example payload
-            payload = {
-                "status": "ok",
-                "mode": "test",
-                "palette_mode": palette_mode,
-                "primary_index": primary_index,
-                "generated": {
-                    "Fastfetch": {
-                        "fastfetchAccent": {"color": "#3daee9", "alpha": "100"}
-                    },
-                    "Starship": {
-                        "selectedAccent": {"color": "#3daee9", "alpha": "100"},
-                        "selectedAccentText": {"color": "#ffffff", "alpha": "100"}
-                    }
-                }
-            }
-            return json.dumps(payload)
-        
-        # Real implementation
         if not palette_mode:
             return json.dumps({"status": "error", "message": "palette_mode required"})
         
@@ -235,16 +223,18 @@ def run_autogen(test_mode: bool = True, palette_mode: Optional[str] = None, pale
                         # Use accent_override if provided (central panel color), else extract from scheme
                         if accent_override:
                             color = accent_override
+                            opacity = 1.0
                             logger.info(f"Using accent_override for PrimaryColor: {color}")
                         else:
-                            color = _extract_color_from_scheme(scheme_path, "Colors:Window", "DecorationFocus")
-                            logger.info(f"Extracted PrimaryColor from DecorationFocus: {color}")
+                            color, opacity = _extract_color_from_scheme(scheme_path, "Colors:Window", "DecorationFocus")
+                            logger.info(f"Extracted PrimaryColor from DecorationFocus: {color}, opacity: {opacity}")
                     else:
                         color = "#ff0000"  # fallback
+                        opacity = 1.0
                 elif extract_method == "color_scheme":
                     section = rule.get("scheme_section")
                     key = rule.get("scheme_key")
-                    color = _extract_color_from_scheme(scheme_path, section, key)
+                    color, opacity = _extract_color_from_scheme(scheme_path, section, key)
                 elif extract_method == "better_contrast":
                     base_color = rule.get("base_color")
                     group_colors = rule.get("group_colors", [])
@@ -254,10 +244,14 @@ def run_autogen(test_mode: bool = True, palette_mode: Optional[str] = None, pale
                     if "TobeDefined" in group_colors:
                         group_colors = palette if palette else ["#ff0000"]
                     color = _get_better_contrast_color(base_color, group_colors)
+                    opacity = 1.0
                 else:
                     color = "#ff0000"  # fallback
+                    opacity = 1.0
                 
-                generated[app][prop] = {"color": color or "#ff0000", "alpha": "100"}
+                # Convert opacity to percentage string
+                alpha_str = str(round(opacity * 100))
+                generated[app][prop] = {"color": color or "#ff0000", "alpha": alpha_str}
         
         payload = {
             "status": "ok",
@@ -271,6 +265,97 @@ def run_autogen(test_mode: bool = True, palette_mode: Optional[str] = None, pale
     except Exception as e:
         logger.error(f"Error in run_autogen: {e}")
         return json.dumps({"status": "error", "message": str(e)})
+
+
+def run_autogen_current_colors(palette_mode: Optional[str] = None, primary_color: str = "", accent_override: str = "") -> str:
+    """Run autogen generation using current color schemes (no regeneration).
+
+    Generates color configurations for integrated applications based on 
+    existing Kuntatinte color schemes and autogen rules.
+
+    Args:
+        palette_mode: "dark" or "light" mode for generation.
+        primary_color: Primary color override.
+        accent_override: Accent color override.
+
+    Returns:
+        JSON string with generated data or error information.
+    """
+    try:
+        if not palette_mode:
+            return json.dumps({"status": "error", "message": "palette_mode required"})
+        
+        # Use existing schemes - no regeneration
+        # Get scheme path
+        scheme_name = "KuntatinteLight" if palette_mode == "light" else "KuntatinteDark"
+        scheme_path = get_scheme_file_path(scheme_name)
+        if not scheme_path or not scheme_path.exists():
+            return json.dumps({"status": "error", "message": f"Color scheme {scheme_name} not found"})
+        
+        # Load rules
+        rules = _load_rules_from_templates(palette_mode)
+        if not rules:
+            return json.dumps({"status": "error", "message": f"No rules found for mode {palette_mode}"})
+        
+        # Generate configs using existing scheme
+        generated = {}
+        for app, props in rules.items():
+            generated[app] = {}
+            for prop, rule in props.items():
+                try:
+                    extract_method = rule.get("extract_method")
+                    if extract_method == "variable":
+                        variable_key = rule.get("variable_key")
+                        if variable_key == "PrimaryColor":
+                            # Use accent_override if provided, else extract from scheme
+                            if accent_override:
+                                color = accent_override
+                                opacity = 1.0
+                                logger.info(f"Using accent_override for PrimaryColor: {color}")
+                            else:
+                                color, opacity = _extract_color_from_scheme(scheme_path, "Colors:Window", "DecorationFocus")
+                                logger.info(f"Extracted PrimaryColor from DecorationFocus: {color}, opacity: {opacity}")
+                        else:
+                            color = "#ff0000"  # fallback
+                            opacity = 1.0
+                    elif extract_method == "color_scheme":
+                        section = rule.get("scheme_section")
+                        key = rule.get("scheme_key")
+                        color, opacity = _extract_color_from_scheme(scheme_path, section, key)
+                    elif extract_method == "better_contrast":
+                        base_color = rule.get("base_color")
+                        group_colors = rule.get("group_colors", [])
+                        # For now, use placeholders if TobeDefined
+                        if base_color == "TobeDefined":
+                            base_color = primary_color or "#ff0000"
+                        if "TobeDefined" in group_colors:
+                            group_colors = [primary_color] if primary_color else ["#ff0000"]
+                        color = _get_better_contrast_color(base_color, group_colors)
+                        opacity = 1.0
+                    else:
+                        color = "#ff0000"  # fallback
+                        opacity = 1.0
+                    
+                    # Convert opacity to percentage string
+                    alpha_str = str(round(opacity * 100))
+                    generated[app][prop] = {"color": color or "#ff0000", "alpha": alpha_str}
+                except Exception as e:
+                    logger.error(f"Error processing {app}.{prop}: {e}")
+                    generated[app][prop] = {"color": "#ff0000", "alpha": "100"}
+        
+        payload = {
+            "status": "ok",
+            "mode": "prod",
+            "palette_mode": palette_mode,
+            "primary_index": 0,  # Not applicable for current colors mode
+            "generated": generated
+        }
+        return json.dumps(payload)
+        
+    except Exception as e:
+        logger.error(f"Error in run_autogen_current_colors: {e}")
+        return json.dumps({"status": "error", "message": str(e)})
+
 
 from core.config_manager import config
 

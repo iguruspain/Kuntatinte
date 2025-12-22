@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Igu R. Spain
+# Copyright (C) 2025 iguruspain
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -488,7 +488,7 @@ class PaletteBackend(QObject):
             accent_override = accent_color if accent_color else self._current_accent_override
             
             logger.info(f"runAutogen called with mode={mode}, image_path={image_path}, primary_color={primary_color}, accent_color={accent_color}, current_palette={self._current_palette}, primary_index={self._current_primary_index}, accent_override={accent_override}")
-            result = autogen.run_autogen(test_mode=False, palette_mode=mode, palette=self._current_palette, primary_index=self._current_primary_index, accent_override=accent_override, primary_color=primary_color)
+            result = autogen.run_autogen(palette_mode=mode, palette=self._current_palette, primary_index=self._current_primary_index, accent_override=accent_override, primary_color=primary_color)
             # Parse result to get primary_index and update current settings
             try:
                 result_data = json.loads(result)
@@ -498,6 +498,28 @@ class PaletteBackend(QObject):
                     self.primaryIndexChanged.emit(primary_index)
             except json.JSONDecodeError:
                 pass
+            return result if isinstance(result, str) else json.dumps(result)
+        except Exception as e:
+            return json.dumps({"status": "error", "message": str(e)})
+    
+    @pyqtSlot(str, str, str, result=str)
+    def runAutogenCurrentColors(self, mode: str, primary_color: str = "", accent_color: str = "") -> str:
+        """Run autogen using current color schemes (no regeneration).
+
+        Args:
+            mode: Palette mode string from QML (e.g., "dark" or "light").
+            primary_color: Primary color override.
+            accent_color: Accent color override.
+
+        Returns:
+            JSON string with generated data or error.
+        """
+        try:
+            # Use accent_color as accent_override if provided
+            accent_override = accent_color if accent_color else self._current_accent_override
+            
+            logger.info(f"runAutogenCurrentColors called with mode={mode}, primary_color={primary_color}, accent_color={accent_color}, accent_override={accent_override}")
+            result = autogen.run_autogen_current_colors(palette_mode=mode, primary_color=primary_color, accent_override=accent_override)
             return result if isinstance(result, str) else json.dumps(result)
         except Exception as e:
             return json.dumps({"status": "error", "message": str(e)})
@@ -1129,19 +1151,68 @@ class PaletteBackend(QObject):
     def getFullSchemeData(self, scheme_name: str) -> dict:
         """
         Get complete scheme data for editing.
-        Returns dict of {section: {key: {color: "#hex", opacity: 0.0-1.0}}}
+        Returns dict of {section: {key: {color: "#hex", opacity: 0.0-1.0} or str}}
         """
-        data = parse_scheme_file(scheme_name)
+        from integrations.kuntatinte_colors import get_scheme_file_path, parse_kde_color
+        import configparser
+        
+        scheme_path = get_scheme_file_path(scheme_name)
+        if not scheme_path:
+            return {}
+
         result = {}
-        for section, colors in data.items():
-            result[section] = {}
-            for key, (color, opacity) in colors.items():
-                result[section][key] = {"color": color, "opacity": opacity}
+        try:
+            config = configparser.ConfigParser()
+            config.optionxform = lambda optionstr: optionstr
+            config.read(scheme_path)
+
+            for section in config.sections():
+                result[section] = {}
+                for key, value in config.items(section):
+                    # Try to parse as color
+                    hex_color, opacity = parse_kde_color(value)
+                    if hex_color != "#000000" or value.strip() in ["0,0,0", "0,0,0,255"]:
+                        # It's a valid color, return as dict
+                        result[section][key] = {"color": hex_color, "opacity": opacity}
+                    else:
+                        # Not a color, return as string
+                        result[section][key] = value.strip()
+        except Exception as e:
+            logger.error(f"Error parsing scheme file for full data: {e}")
+            return {}
         return result
 
     @pyqtSlot(str, bool, 'QVariant', result='bool')
     def saveKdeColorScheme(self, scheme_name: str, is_dark: bool, colors_data: dict) -> bool:
         """Save colors as a new KDE color scheme with backup."""
+        return save_color_scheme_from_data(scheme_name, is_dark, colors_data)
+
+    @pyqtSlot(str, bool, 'QVariant', int, result='bool')
+    def saveKdeColorSchemeWithToolbarOpacity(self, scheme_name: str, is_dark: bool, colors_data: dict, toolbar_opacity: int) -> bool:
+        """Save colors as a new KDE color scheme with toolbar opacity applied."""
+        # Convert QJSValue to dict if needed
+        if hasattr(colors_data, 'toVariant'):
+            colors_data = colors_data.toVariant()
+
+        # Apply toolbar opacity to WM section
+        if "WM" not in colors_data:
+            colors_data["WM"] = {}
+
+        wm_data = colors_data["WM"]
+        # Get existing colors or use defaults
+        active_bg_color = "#ffffff"
+        inactive_bg_color = "#ffffff"
+        
+        if "activeBackground" in wm_data and isinstance(wm_data["activeBackground"], dict):
+            active_bg_color = wm_data["activeBackground"].get("color", "#ffffff")
+        if "inactiveBackground" in wm_data and isinstance(wm_data["inactiveBackground"], dict):
+            inactive_bg_color = wm_data["inactiveBackground"].get("color", "#ffffff")
+        
+        # Update with new opacity
+        opacity = toolbar_opacity / 100.0
+        colors_data["WM"]["activeBackground"] = {"color": active_bg_color, "opacity": opacity}
+        colors_data["WM"]["inactiveBackground"] = {"color": inactive_bg_color, "opacity": opacity}
+        
         return save_color_scheme_from_data(scheme_name, is_dark, colors_data)
 
     # =========================================================================
@@ -1335,6 +1406,10 @@ class PaletteBackend(QObject):
                     if prop in ul:
                         color = ul[prop]["color"]
                         self.setConfigValue("ulauncher", config_key, color)
+                        # Also save opacity if available
+                        if "alpha" in ul[prop]:
+                            opacity = round(float(ul[prop]["alpha"]))
+                            self.setConfigValue("ulauncher", f"{config_key}_opacity", opacity)
             
             # Apply OpenRGB if available
             if "OpenRGB" in generated:

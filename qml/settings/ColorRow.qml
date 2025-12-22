@@ -57,14 +57,15 @@ RowLayout {
     // Opacity control - only shown when needed
     Controls.SpinBox {
         visible: colorRow.showOpacity
-        Layout.preferredWidth: 80
+        Layout.preferredWidth: 55
+        Layout.maximumWidth: 60
         from: 0
         to: 100
         value: colorRow.colorOpacity
-        stepSize: 5
+        stepSize: 1
         editable: true
         
-        textFromValue: function(value) { return value + "%" }
+        textFromValue: function(value) { return value.toString() }
         valueFromText: function(text) { return parseInt(text) }
         
         onValueModified: {

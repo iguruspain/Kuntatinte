@@ -238,6 +238,14 @@ Controls.ScrollView {
             if (editSchemeName && editSchemeName !== "") {
                 try {
                     editSchemeData = backend.getFullSchemeData(editSchemeName)
+                    
+                    // Extract toolbar opacity from WM section if available
+                    if (editSchemeData && editSchemeData["WM"] && editSchemeData["WM"]["activeBackground"]) {
+                        var wmActiveBg = editSchemeData["WM"]["activeBackground"]
+                        if (wmActiveBg && typeof wmActiveBg === "object" && wmActiveBg.hasOwnProperty("opacity")) {
+                            kdeSettings2.toolbarOpacity = Math.round(wmActiveBg.opacity * 100)
+                        }
+                    }
                 } catch (e) {
                     console.log('Error getting full scheme data for', editSchemeName, e)
                     editSchemeData = {}
@@ -266,6 +274,7 @@ Controls.ScrollView {
                 // set combobox index (this will update displayText)
                 try {
                     kuntatinteCombo.currentIndex = kuntatinteSchemesList.indexOf(chosen)
+                    editSchemeName = chosen
                 } catch (e) {
                     // ignore if combo not yet ready
                 }
@@ -981,7 +990,9 @@ Controls.ScrollView {
                 onClicked: {
                     if (editSchemeName !== "") {
                         var isDark = editSchemeName.indexOf("Dark") !== -1
-                        backend.saveKdeColorScheme(editSchemeName, isDark, editSchemeData)
+                        
+                        // Use the new backend function that applies toolbar opacity
+                        backend.saveKdeColorSchemeWithToolbarOpacity(editSchemeName, isDark, editSchemeData, kdeSettings2.toolbarOpacity)
                         root.kdeColorSchemesList = backend.getColorSchemesList()
                         root.showPassiveNotification("Saved: " + editSchemeName)
                     }
