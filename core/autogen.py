@@ -168,7 +168,7 @@ def run_autogen(palette_mode: Optional[str] = None, palette: Optional[list[str]]
         JSON string with generated data or error information.
     """
     try:
-        if not test_mode and not palette_mode:
+        if not palette_mode:
             return json.dumps({"status": "error", "message": "palette_mode required"})
         
         # Generate Kuntatinte schemes if needed

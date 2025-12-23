@@ -546,7 +546,7 @@ ColumnLayout {
                                     primaryColor: root.getKuntatinteSelectedColor(),
                                     accentColor: root.selectedColor
                                 })
-                                if (dlg) dlg.open()
+                                if (dlg) dlg.show()
                                 else console.log("Failed to create AutogenDialog object")
                             } else {
                                 console.log("AutogenDialog component not ready:", comp.errorString())

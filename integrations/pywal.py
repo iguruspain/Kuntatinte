@@ -92,8 +92,14 @@ def _parse_colors_from_pywal_result(result) -> List[str]:
     return []
 
 
+import subprocess
+import json
+import tempfile
+import os
+from pathlib import Path
+
 def generate_palette(image_path: str, cols: int = 16) -> List[str]:
-    """Genera una paleta usando pywal.
+    """Genera una paleta usando pywal sin aplicar tema.
 
     Args:
         image_path: ruta a la imagen de entrada.
@@ -113,9 +119,9 @@ def generate_palette(image_path: str, cols: int = 16) -> List[str]:
     except Exception as e:
         raise RuntimeError("pywal is not installed in the virtual environment") from e
 
-    # Use pywal.colors.get
+    # Use pywal.colors.get with quiet=True to suppress logs and avoid side effects
     try:
-        result = pywal.colors.get(img, cols=cols)
+        result = pywal.colors.get(img, cols=cols, quiet=True)
         parsed = _parse_colors_from_pywal_result(result)
         if parsed:
             return parsed

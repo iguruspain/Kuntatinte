@@ -43,6 +43,7 @@ from core.material_you_colors import (
     is_available as is_material_you_available,
 )
 from core import autogen
+from core import pywalpal
 from integrations.kuntatinte_colors import (
     # kde_colors exports
     get_current_scheme_name,
@@ -490,15 +491,7 @@ class PaletteBackend(QObject):
             
             logger.info(f"runAutogen called with mode={mode}, image_path={image_path}, primary_color={primary_color}, accent_color={accent_color}, current_palette={self._current_palette}, primary_index={self._current_primary_index}, accent_override={accent_override}")
             result = autogen.run_autogen(palette_mode=mode, palette=self._current_palette, primary_index=self._current_primary_index, accent_override=accent_override, primary_color=primary_color)
-            # Parse result to get primary_index and update current settings
-            try:
-                result_data = json.loads(result)
-                if result_data.get("status") == "ok":
-                    primary_index = result_data.get("primary_index", self._current_primary_index)
-                    self._current_primary_index = primary_index
-                    self.primaryIndexChanged.emit(primary_index)
-            except json.JSONDecodeError:
-                pass
+            # Do not update current settings to avoid saving to config
             return result if isinstance(result, str) else json.dumps(result)
         except Exception as e:
             return json.dumps({"status": "error", "message": str(e)})
@@ -516,14 +509,81 @@ class PaletteBackend(QObject):
             JSON string with generated data or error.
         """
         try:
-            # Use accent_color as accent_override if provided
-            accent_override = accent_color if accent_color else self._current_accent_override
+            # Do not use accent_override from config to avoid using current settings
+            accent_override = accent_color if accent_color else ""
             
             logger.info(f"runAutogenCurrentColors called with mode={mode}, primary_color={primary_color}, accent_color={accent_color}, accent_override={accent_override}")
             result = autogen.run_autogen_current_colors(palette_mode=mode, primary_color=primary_color, accent_override=accent_override)
             return result if isinstance(result, str) else json.dumps(result)
         except Exception as e:
             return json.dumps({"status": "error", "message": str(e)})
+    
+    @pyqtSlot(str, str, result=str)
+    def runPywalPal(self, primary_color: str = "", accent_color: str = "") -> str:
+        """Generate pywal palettes based on Kuntatinte Color Scheme inputs and save as colors.json.
+
+        Args:
+            primary_color: Primary color from Kuntatinte Color Scheme.
+            accent_color: Accent color (optional).
+
+        Returns:
+            String with generated palettes or error.
+        """
+        try:
+            logger.info(f"runPywalPal called with primary_color={primary_color}, accent_color={accent_color}")
+            # Get multipliers from config
+            scheme_variant = config.get("color_scheme", "scheme_variant", 5)
+            chroma_multiplier = config.get("color_scheme", "chroma_multiplier", 1.0)
+            tone_multiplier = config.get("color_scheme", "tone_multiplier", 1.0)
+            
+            # Get current wallpaper
+            wallpaper_path = self.getCurrentWallpaper()
+            
+            # Save colors.json
+            from pathlib import Path
+            config_dir = str(Path.home() / ".config" / "kuntatinte")
+            pywalpal.save_kuntatinte_colors_json(primary_color, accent_color, scheme_variant, chroma_multiplier, tone_multiplier, wallpaper_path if wallpaper_path else None, config_dir)
+            
+            # Return a short message
+            return f"Generated and saved colors.json to {config_dir}"
+        except Exception as e:
+            logger.error(f"Error in runPywalPal: {e}")
+            return f"Error: {str(e)}"
+    
+    @pyqtSlot(str, str, str, result=str)
+    def runPywalPalCompare(self, primary_color: str = "", accent_color: str = "", wallpaper_path: str = "") -> str:
+        """Generate pywal palettes and compare with current pywal cache.
+
+        Args:
+            primary_color: Primary color from Kuntatinte Color Scheme.
+            accent_color: Accent color (optional).
+            wallpaper_path: Path to wallpaper image for color extraction (optional).
+
+        Returns:
+            String with generated palettes and comparison or error.
+        """
+        try:
+            logger.info(f"runPywalPalCompare called with primary_color={primary_color}, accent_color={accent_color}, wallpaper_path={wallpaper_path}")
+            # Get multipliers from config
+            scheme_variant = config.get("color_scheme", "scheme_variant", 5)
+            chroma_multiplier = config.get("color_scheme", "chroma_multiplier", 1.0)
+            tone_multiplier = config.get("color_scheme", "tone_multiplier", 1.0)
+            result = pywalpal.generate_and_compare_pywal_palettes(primary_color, accent_color, scheme_variant, chroma_multiplier, tone_multiplier, wallpaper_path if wallpaper_path else None)
+            return result
+        except Exception as e:
+            logger.error(f"Error in runPywalPalCompare: {e}")
+            return f"Error: {str(e)}"
+    
+    @pyqtSlot(result=bool)
+    def comparePalettes(self) -> bool:
+        """Compare Kuntatinte's colors.json with pywal's colors.json.
+
+        Returns:
+            True if palettes match, False otherwise.
+        """
+        from pathlib import Path
+        kuntatinte_config_dir = str(Path.home() / ".config" / "kuntatinte")
+        return pywalpal.compare_colors_json(kuntatinte_config_dir)
     
     @pyqtSlot(result='bool')
     def isMaterialYouAvailable(self) -> bool:
@@ -1409,7 +1469,7 @@ class PaletteBackend(QObject):
 
     @pyqtSlot(str, result=bool)
     def applyAutogenColors(self, autogen_json: str) -> bool:
-        """Apply autogen colors to application settings.
+        """Load autogen colors into application settings temporarily (no save to file).
         
         Args:
             autogen_json: JSON string from autogen generation
@@ -1421,18 +1481,17 @@ class PaletteBackend(QObject):
             data = json.loads(autogen_json)
             primary_index = data.get("primary_index")
             if primary_index is not None:
-                self.setConfigValue("color_scheme", "primary_index", primary_index)
+                self.setConfigValueTemp("color_scheme", "primary_index", primary_index)
             generated = data.get("generated", {})
             
-            # Apply Fastfetch colors
+            # Load Fastfetch colors into settings
             if "Fastfetch" in generated:
                 ff = generated["Fastfetch"]
                 if "fastfetchAccent" in ff:
                     accent = ff["fastfetchAccent"]["color"]
-                    # Set fastfetch accent in config
-                    self.setConfigValue("fastfetch", "accent", accent)
+                    self.setConfigValueTemp("fastfetch", "accent", accent)
             
-            # Apply Starship colors
+            # Load Starship colors into settings
             if "Starship" in generated:
                 ss = generated["Starship"]
                 accent = ss.get("selectedAccent", {}).get("color", "")
@@ -1447,23 +1506,21 @@ class PaletteBackend(QObject):
                 other_bg = ss.get("selectedOtherBg", {}).get("color", "")
                 other_text = ss.get("selectedOtherText", {}).get("color", "")
                 
-                # Save to config instead of applying directly
-                self.setConfigValue("starship", "accent", accent)
-                self.setConfigValue("starship", "accent_text", accent_text)
-                self.setConfigValue("starship", "dir_fg", dir_fg)
-                self.setConfigValue("starship", "dir_bg", dir_bg)
-                self.setConfigValue("starship", "dir_text", dir_text)
-                self.setConfigValue("starship", "git_fg", git_fg)
-                self.setConfigValue("starship", "git_bg", git_bg)
-                self.setConfigValue("starship", "git_text", git_text)
-                self.setConfigValue("starship", "other_fg", other_fg)
-                self.setConfigValue("starship", "other_bg", other_bg)
-                self.setConfigValue("starship", "other_text", other_text)
+                self.setConfigValueTemp("starship", "accent", accent)
+                self.setConfigValueTemp("starship", "accent_text", accent_text)
+                self.setConfigValueTemp("starship", "dir_fg", dir_fg)
+                self.setConfigValueTemp("starship", "dir_bg", dir_bg)
+                self.setConfigValueTemp("starship", "dir_text", dir_text)
+                self.setConfigValueTemp("starship", "git_fg", git_fg)
+                self.setConfigValueTemp("starship", "git_bg", git_bg)
+                self.setConfigValueTemp("starship", "git_text", git_text)
+                self.setConfigValueTemp("starship", "other_fg", other_fg)
+                self.setConfigValueTemp("starship", "other_bg", other_bg)
+                self.setConfigValueTemp("starship", "other_text", other_text)
             
-            # Apply Ulauncher colors
+            # Load Ulauncher colors into settings
             if "Ulauncher" in generated:
                 ul = generated["Ulauncher"]
-                # Map ulauncher properties to config keys
                 mappings = {
                     "ulauncherBgColor": "background_color",
                     "ulauncherBorderColor": "border_color", 
@@ -1485,24 +1542,22 @@ class PaletteBackend(QObject):
                 for prop, config_key in mappings.items():
                     if prop in ul:
                         color = ul[prop]["color"]
-                        self.setConfigValue("ulauncher", config_key, color)
-                        # Also save opacity if available
+                        self.setConfigValueTemp("ulauncher", config_key, color)
                         if "alpha" in ul[prop]:
                             opacity = round(float(ul[prop]["alpha"]))
-                            self.setConfigValue("ulauncher", f"{config_key}_opacity", opacity)
+                            self.setConfigValueTemp("ulauncher", f"{config_key}_opacity", opacity)
             
-            # Apply OpenRGB if available
+            # Load OpenRGB colors into settings
             if "OpenRGB" in generated:
                 rgb = generated["OpenRGB"]
                 if "openrgbAccent" in rgb:
                     accent = rgb["openrgbAccent"]["color"]
-                    # Save to config instead of applying directly
-                    self.setConfigValue("openrgb", "accent", accent)
+                    self.setConfigValueTemp("openrgb", "accent", accent)
             
             return True
             
         except Exception as e:
-            logger.error(f"Error applying autogen colors: {e}")
+            logger.error(f"Error loading autogen colors: {e}")
             return False
 
     @pyqtSlot(str, str, 'QVariant', result='QVariant')
@@ -1513,5 +1568,11 @@ class PaletteBackend(QObject):
     def setConfigValue(self, section: str, key: str, value):
         config.set(section, key, value)
         config._save()
+        self.configChanged.emit(section, key, value)
+
+    @pyqtSlot(str, str, 'QVariant')
+    def setConfigValueTemp(self, section: str, key: str, value):
+        """Set config value temporarily (in memory only, no save to file)."""
+        config.set(section, key, value, save=False)
         self.configChanged.emit(section, key, value)
 

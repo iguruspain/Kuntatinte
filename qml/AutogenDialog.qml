@@ -12,11 +12,13 @@ import QtQuick.Window
   clean and reusable.
 */
 
-Controls.Dialog {
+Window {
     id: rootDialog
     title: "Autogen Mode"
-    modal: true
-    standardButtons: Controls.Dialog.NoButton
+    width: 800
+    height: 600
+    visible: false
+    color: Kirigami.Theme.backgroundColor
 
     // Preview data
     property string autogenText: ""
@@ -26,6 +28,7 @@ Controls.Dialog {
 
     // UI state
     property bool jsonPreviewExpanded: false
+    property bool palettesMatch: false
 
     // Backend object must be set by the parent (CentralPanel)
     property var backend: null
@@ -40,8 +43,9 @@ Controls.Dialog {
     // Accent color from central panel
     property string accentColor: ""
 
-    contentItem: ColumnLayout {
-        Layout.margins: Kirigami.Units.largeSpacing
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: Kirigami.Units.largeSpacing
         spacing: Kirigami.Units.smallSpacing
 
         Controls.Label {
@@ -49,11 +53,12 @@ Controls.Dialog {
             textFormat: Text.RichText
         }
 
-        RowLayout {
+        ColumnLayout {
             spacing: Kirigami.Units.smallSpacing
 
             Controls.Button {
                 text: "Generate (also colors)"
+                Layout.fillWidth: true
                 onClicked: {
                     if (busyIndicator) busyIndicator.visible = true
                     if (backend) {
@@ -79,6 +84,7 @@ Controls.Dialog {
 
             Controls.Button {
                 text: "Generate (current colors)"
+                Layout.fillWidth: true
                 onClicked: {
                     if (busyIndicator) busyIndicator.visible = true
                     if (backend) {
@@ -99,6 +105,30 @@ Controls.Dialog {
                         }
                     }
                     if (busyIndicator) busyIndicator.visible = false
+                }
+            }
+
+            Controls.Button {
+                text: "pywalpal"
+                Layout.fillWidth: true
+                onClicked: {
+                    if (busyIndicator) busyIndicator.visible = true
+                    if (backend) {
+                        var res = backend.runPywalPal(primaryColor, accentColor, selectedImagePath)
+                        rootDialog.autogenText = (res === undefined || res === null) ? "" : String(res)
+                        jsonPreviewExpanded = true
+                    }
+                    if (busyIndicator) busyIndicator.visible = false
+                }
+            }
+
+            Controls.Button {
+                text: "Compare" + (rootDialog.palettesMatch ? " ✓" : " ✗")
+                Layout.fillWidth: true
+                onClicked: {
+                    rootDialog.palettesMatch = backend.comparePalettes()
+                    rootDialog.autogenText = rootDialog.palettesMatch ? "Palettes match!" : "Palettes do not match. Check logs for details."
+                    jsonPreviewExpanded = true
                 }
             }
         }
@@ -198,14 +228,15 @@ Controls.Dialog {
                     if (backend) {
                         var ok = backend.applyAutogenColors(rootDialog.autogenText)
                         if (ok) {
-                            root.showPassiveNotification("Autogen colors exported to settings")
+                            root.showPassiveNotification("Autogen colors loaded to settings")
                         } else {
-                            root.showPassiveNotification("Error exporting autogen colors")
+                            root.showPassiveNotification("Error loading autogen colors")
                         }
                     }
                     if (busyIndicator) busyIndicator.visible = false
                 }
             }
         }
+
     }
 }

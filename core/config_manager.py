@@ -152,7 +152,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     },
     "logging": {
         "enabled": False,
-        "file": None,  # None means console output
+        "file": None,  # None means no file logging
+        "console": False,  # Enable console output
         "level": "INFO",
     },
     "ui": {
@@ -460,12 +461,18 @@ class Config:
     @property
     def logging_file(self) -> Optional[str]:
         """Log file path. None means console output."""
-        return self.get("logging", "file", None)
+        path = self.get_path("logging", "file")
+        return str(path) if path else None
     
     @property
     def logging_level(self) -> str:
         """Logging level (DEBUG, INFO, WARNING, ERROR)."""
         return self.get("logging", "level", "INFO")
+    
+    @property
+    def logging_console(self) -> bool:
+        """Whether to log to console."""
+        return self.get("logging", "console", False)
 
 
 # =============================================================================

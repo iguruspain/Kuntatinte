@@ -80,20 +80,24 @@ def setup_logging():
     
     level = level_map.get(config.logging_level.upper(), logging.INFO)
     
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    
+    # Create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    
+    # Add file handler if file is specified
     if config.logging_file:
-        # Log to file
-        logging.basicConfig(
-            level=level,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            filename=config.logging_file,
-            filemode='a'  # Append mode
-        )
-    else:
-        # Log to console
-        logging.basicConfig(
-            level=level,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
+        file_handler = logging.FileHandler(config.logging_file, mode='a')
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+    
+    # Add console handler if console is enabled
+    if config.logging_console:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        root_logger.addHandler(console_handler)
 
 setup_logging()
 logger = logging.getLogger(__name__)
