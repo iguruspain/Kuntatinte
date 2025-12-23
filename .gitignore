@@ -40,3 +40,6 @@ tests/
 
 # benchmarks
 benchmark_performance.py
+
+# reglas para copilot
+.github/
