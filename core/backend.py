@@ -709,8 +709,22 @@ class PaletteBackend(QObject):
         """Apply image as desktop wallpaper using plasma-apply-wallpaperimage."""
         try:
             # Use plasma-apply-wallpaperimage (Plasma 6)
-            subprocess.run(['plasma-apply-wallpaperimage', image_path], check=True)
-            logger.info(f"Wallpaper set to: {image_path}")
+            logger.info(f"Attempting to set wallpaper via plasma-apply-wallpaperimage: {image_path}")
+            # Run command capturing output so we can log failures for debugging
+            proc = subprocess.run([
+                'plasma-apply-wallpaperimage',
+                image_path
+            ], capture_output=True, text=True, check=False)
+
+            logger.debug(f"plasma-apply-wallpaperimage returncode={proc.returncode} stdout={proc.stdout!r} stderr={proc.stderr!r}")
+
+            if proc.returncode == 0:
+                logger.info(f"Wallpaper set to: {image_path} (plasma-apply-wallpaperimage)")
+                return
+            else:
+                logger.warning(
+                    "plasma-apply-wallpaperimage failed, falling back to qdbus method"
+                )
         except FileNotFoundError:
             # Fallback: try with qdbus
             self._set_wallpaper_via_qdbus(image_path)
@@ -720,6 +734,42 @@ class PaletteBackend(QObject):
     def _set_wallpaper_via_qdbus(self, image_path: str) -> None:
         """Set wallpaper using qdbus as fallback method."""
         try:
+            # Prefer qdbus6 if available
+            qdbus_cmd = None
+            for cmd in ("qdbus6", "qdbus"):
+                try:
+                    if subprocess.run(["command", "-v", cmd], capture_output=True).returncode == 0:
+                        qdbus_cmd = cmd
+                        break
+                except Exception:
+                    continue
+
+            if not qdbus_cmd:
+                logger.error("No qdbus binary found (qdbus6/qdbus). Cannot set wallpaper via qdbus.")
+                return
+
+            # Debug: first query current desktops to log what we'll change
+            query_script = """
+            var ds = desktops();
+            var wallpaperInfo = [];
+            for (let i = 0; i < ds.length; i++) {
+                ds[i].currentConfigGroup = Array('Wallpaper', ds[i].wallpaperPlugin, 'General');
+                if (ds[i].wallpaperPlugin == 'org.kde.image') {
+                    var img = ds[i].readConfig('Image').replace('file://', '');
+                    wallpaperInfo.push({monitor: i, screen: ds[i].screen, wallpaper: img});
+                }
+            }
+            print(JSON.stringify(wallpaperInfo));
+            """
+
+            try:
+                logger.debug(f"Running {qdbus_cmd} to query current desktop wallpapers")
+                qry = subprocess.run([qdbus_cmd, 'org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript', query_script], capture_output=True, text=True)
+                logger.debug(f"qdbus query returncode={qry.returncode} stdout={qry.stdout!r} stderr={qry.stderr!r}")
+            except Exception as e:
+                logger.debug(f"Failed to query plasmashell via {qdbus_cmd}: {e}")
+
+            # Script to set wallpaper on all desktops (keeping original behaviour)
             script = f'''
             var allDesktops = desktops();
             for (var i = 0; i < allDesktops.length; i++) {{
@@ -729,11 +779,14 @@ class PaletteBackend(QObject):
                 d.writeConfig("Image", "file://{image_path}");
             }}
             '''
-            subprocess.run([
-                'qdbus', 'org.kde.plasmashell', '/PlasmaShell',
-                'org.kde.PlasmaShell.evaluateScript', script
-            ], check=True)
-            logger.info(f"Wallpaper set via qdbus to: {image_path}")
+
+            logger.debug(f"Running {qdbus_cmd} to set wallpaper. Script length={len(script)}")
+            proc = subprocess.run([qdbus_cmd, 'org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript', script], capture_output=True, text=True)
+            logger.debug(f"qdbus set returncode={proc.returncode} stdout={proc.stdout!r} stderr={proc.stderr!r}")
+            if proc.returncode == 0:
+                logger.info(f"Wallpaper set via {qdbus_cmd} to: {image_path}")
+            else:
+                logger.error(f"Failed to set wallpaper via {qdbus_cmd}: returncode={proc.returncode}")
         except Exception as e:
             logger.error(f"Error setting wallpaper via qdbus: {e}")
     

@@ -152,8 +152,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     },
     "logging": {
         "enabled": False,
-        "file": None,  # None means no file logging
-        "console": False,  # Enable console output
+        "file": "",  # Empty string means no file logging
+        "console": True,  # Enable console output
         "level": "INFO",
     },
     "ui": {
@@ -460,9 +460,12 @@ class Config:
     
     @property
     def logging_file(self) -> Optional[str]:
-        """Log file path. None means console output."""
-        path = self.get_path("logging", "file")
-        return str(path) if path else None
+        """Log file path. None means no file logging."""
+        value = self.get("logging", "file", "")
+        if not value:
+            return None
+        path = Path(value).expanduser()
+        return str(path)
     
     @property
     def logging_level(self) -> str:
