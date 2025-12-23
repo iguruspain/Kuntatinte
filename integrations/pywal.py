@@ -15,17 +15,14 @@
 
 """Integración con Pywal (API Python).
 
-Este módulo intenta usar la API de la librería `pywal` cuando está
-disponible; si no puede detectar una API directa, hace un fallback
-prudente al CLI (solo como último recurso).
+Este módulo usa la API de la librería `pywal` para generar paletas de colores
+a partir de imágenes.
 
 Función principal:
-- `generate_palette(image_path, mode='auto', cols=16)` -> lista de hex colores
+- `generate_palette(image_path)` -> lista de hex colores
 
 Notas:
-- La API de `pywal` ha cambiado entre versiones; por eso se intentan
-  varios puntos de entrada. Si ninguna está disponible, se levanta
-  una excepción clara para que el backend pueda manejarla.
+- Requiere `pywal` instalado. Si no está disponible, levanta una excepción.
 """
 from __future__ import annotations
 
@@ -95,13 +92,12 @@ def _parse_colors_from_pywal_result(result) -> List[str]:
     return []
 
 
-def generate_palette(image_path: str, _mode: str = 'auto', cols: int = 16, _timeout: int = 30) -> List[str]:
+def generate_palette(image_path: str, cols: int = 16) -> List[str]:
     """Genera una paleta usando pywal.
 
     Args:
         image_path: ruta a la imagen de entrada.
-        mode: 'auto', 'light' o 'dark' — intención para la generación.
-        cols: número de colores solicitados (intención, depende de pywal).
+        cols: número de colores a extraer (por defecto 16).
 
     Returns:
         Lista de colores en formato '#rrggbb'.
@@ -109,13 +105,9 @@ def generate_palette(image_path: str, _mode: str = 'auto', cols: int = 16, _time
     Raises:
         RuntimeError si pywal no está disponible o si hay un error.
     """
-    import subprocess
-    import os
-    from pathlib import Path
-
     img = str(Path(image_path))
 
-    # Use pywal Python module instead of binary
+    # Use pywal Python module
     try:
         import pywal  # type: ignore
     except Exception as e:
@@ -123,7 +115,7 @@ def generate_palette(image_path: str, _mode: str = 'auto', cols: int = 16, _time
 
     # Use pywal.colors.get
     try:
-        result = pywal.colors.get(img)
+        result = pywal.colors.get(img, cols=cols)
         parsed = _parse_colors_from_pywal_result(result)
         if parsed:
             return parsed
