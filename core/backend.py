@@ -24,6 +24,7 @@ import json
 import logging
 import subprocess
 import threading
+from collections import Counter
 from pathlib import Path
 from typing import Optional
 
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QStandardPaths
 from PyQt6.QtCore import pyqtProperty  # type: ignore[attr-defined]
+from PyQt6.QtDBus import QDBusInterface, QDBusConnection, QDBusMessage
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QFileDialog, QColorDialog
 
@@ -679,40 +681,77 @@ class PaletteBackend(QObject):
     def getCurrentWallpaper(self) -> str:
         """Get the current desktop wallpaper path."""
         try:
-            # Use qdbus6 to get current wallpaper from PlasmaShell
+            # Use QDBus to get current wallpaper from PlasmaShell
+            bus = QDBusConnection.sessionBus()
+            if not bus.isConnected():
+                logger.debug("D-Bus session bus not connected")
+                return ""
+            
+            interface = QDBusInterface(
+                "org.kde.plasmashell",
+                "/PlasmaShell",
+                "org.kde.PlasmaShell",
+                bus
+            )
+            
+            if not interface.isValid():
+                logger.debug("PlasmaShell D-Bus interface not valid")
+                return ""
+            
+            # Use evaluateScript to get wallpaper, improved for multiple monitors
             script = '''
             var ds = desktops();
+            var wallpaperInfo = [];
             for (let i = 0; i < ds.length; i++) {
-                if (ds[i].screen == 0) {
-                    ds[i].currentConfigGroup = Array("Wallpaper", ds[i].wallpaperPlugin, "General");
-                    if (ds[i].wallpaperPlugin == "org.kde.image") {
-                        print(ds[i].readConfig("Image").replace("file://", ""));
+                ds[i].currentConfigGroup = Array("Wallpaper", ds[i].wallpaperPlugin, "General");
+                if (ds[i].wallpaperPlugin == "org.kde.image") {
+                    var img = ds[i].readConfig("Image").replace("file://", "");
+                    if (img) {
+                        wallpaperInfo.push({monitor: i, screen: ds[i].screen, wallpaper: img});
                     }
                 }
             }
+            print(JSON.stringify(wallpaperInfo));
             '''
             
-            result = subprocess.run([
-                'qdbus6', 'org.kde.plasmashell', '/PlasmaShell',
-                'org.kde.PlasmaShell.evaluateScript', script
-            ], capture_output=True, text=True, timeout=5)
+            message = interface.call("evaluateScript", script)
             
-            wallpaper_path = result.stdout.strip()
-            
-            # Check if file exists
-            if wallpaper_path and Path(wallpaper_path).exists():
-                logger.info(f"Current wallpaper found: {wallpaper_path}")
-                return wallpaper_path
+            if message.type() == QDBusMessage.MessageType.ReplyMessage:
+                output = message.arguments()[0].strip()
+                try:
+                    import json
+                    info = json.loads(output)
+                    logger.info(f"Detected wallpapers: {info}")
+                    
+                    # Find primary monitor (assume screen 0 is primary, or the first)
+                    primary_monitor = min(info, key=lambda x: x['screen']) if info else None
+                    if primary_monitor:
+                        logger.info(f"Primary monitor: {primary_monitor['monitor']} (screen {primary_monitor['screen']}), wallpaper: {primary_monitor['wallpaper']}")
+                    
+                    # Choose the most common wallpaper
+                    if info:
+                        wallpapers = [item['wallpaper'] for item in info]
+                        from collections import Counter
+                        most_common = Counter(wallpapers).most_common(1)[0][0]
+                        logger.info(f"Selected wallpaper (most common): {most_common}")
+                        
+                        # Check if file exists
+                        if Path(most_common).exists():
+                            logger.info(f"Current wallpaper found: {most_common}")
+                            return most_common
+                        else:
+                            logger.debug(f"Wallpaper path not found or doesn't exist: {most_common}")
+                            return ""
+                    else:
+                        logger.debug("No wallpapers detected")
+                        return ""
+                except json.JSONDecodeError:
+                    logger.debug(f"Failed to parse wallpaper info: {output}")
+                    return ""
             else:
-                logger.debug(f"Wallpaper path not found or doesn't exist: {wallpaper_path}")
+                logger.debug(f"D-Bus call failed: {message.errorMessage()}")
                 return ""
                 
-        except subprocess.TimeoutExpired:
-            logger.debug("qdbus6 command timed out")
-            return ""
-        except FileNotFoundError:
-            logger.debug("qdbus6 not found")
-            return ""
         except Exception as e:
             logger.debug(f"Error getting current wallpaper: {e}")
             return ""
