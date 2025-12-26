@@ -363,39 +363,7 @@ class PaletteBackend(QObject):
             self.extractionError.emit(f"KDE Material You error: {str(e)}")
             return []
     
-    def _parse_color_to_hex(self, value: str) -> Optional[str]:
-        """Convert a color in various formats to hex.
-        
-        Supports:
-        - Hex: #rrggbb, #rrggbbaa
-        - RGB: r,g,b
-        - RGBA: r,g,b,a
-        
-        Returns:
-            Color in #rrggbb format or None if invalid
-        """
-        try:
-            value = value.strip()
-            
-            # Hex format
-            if value.startswith('#'):
-                if len(value) >= 7:
-                    return value[:7].lower()
-                return None
-            
-            # RGB or RGBA format
-            if ',' in value:
-                parts = value.split(",")
-                if len(parts) >= 3:
-                    r = int(parts[0].strip())
-                    g = int(parts[1].strip())
-                    b = int(parts[2].strip())
-                    if 0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255:
-                        return f"#{r:02x}{g:02x}{b:02x}"
-            
-            return None
-        except (ValueError, IndexError):
-            return None
+    
     
     # System color extraction removed: functionality deprecated with removal of "System" option
     

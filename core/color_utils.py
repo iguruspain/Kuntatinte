@@ -200,11 +200,6 @@ def hex_to_hsl(hex_color: str) -> HSL:
     return hsl
 
 
-def clear_color_caches() -> None:
-    """Clear all color conversion caches."""
-    _hex_to_rgb_cache.clear()
-    _hex_to_hsl_cache.clear()
-
 
 def hsl_to_rgb(h: float, s: float, l: float) -> RGB:
     """Convert HSL values to RGB dictionary.
@@ -567,20 +562,7 @@ def apply_variant_to_color(hex_color: str, variant: int, index: int = 0, total: 
     return hex_color
 
 
-def apply_variant_to_palette(colors: List[str], variant: int) -> List[str]:
-    """Apply a variant transformation to a complete palette.
-    
-    Args:
-        colors: List of hex colors
-        variant: Variant index (0-8)
-    
-    Returns:
-        List of transformed hex colors
-    """
-    return [
-        apply_variant_to_color(color, variant, i, len(colors))
-        for i, color in enumerate(colors)
-    ]
+
 
 
 def generate_palette_from_seed(seed_hex: str, mode: str = "dark", slider_percent: float = 50.0) -> list[str]:
