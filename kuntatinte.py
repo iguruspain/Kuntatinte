@@ -105,8 +105,6 @@ logger = logging.getLogger(__name__)
 # Configure Qt environment BEFORE importing PyQt6
 from core.qt_environment import (
     setup_qt_environment,
-    setup_qml_import_paths,
-    add_qml_import_paths_to_engine
 )
 
 setup_qt_environment()
@@ -120,9 +118,6 @@ from core.backend import PaletteBackend
 
 def main() -> None:
     """Application entry point."""
-    # Set up QML import paths for Kirigami
-    setup_qml_import_paths()
-    
     app = QApplication(sys.argv)
     app.setApplicationName("Kuntatinte")
     app.setOrganizationName("PaletteTools")
@@ -130,9 +125,6 @@ def main() -> None:
     
     # Create QML engine
     engine = QQmlApplicationEngine()
-    
-    # Add import paths to engine
-    add_qml_import_paths_to_engine(engine)
     
     # Create and inject backend
     backend = PaletteBackend()

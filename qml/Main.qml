@@ -11,6 +11,7 @@ import org.kde.kirigami as Kirigami
  */
 Kirigami.ApplicationWindow {
     id: root
+    Kirigami.Theme.colorSet: Kirigami.Theme.Window
     title: "Kuntatinte"
     height: 650
     width: 820
