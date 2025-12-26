@@ -675,10 +675,25 @@ class PaletteBackend(QObject):
         return color.name() if color.isValid() else ""
     
     @pyqtSlot(result='QString')
-    def pickColor(self) -> str:
-        """Open native color picker dialog for any color."""
+    @pyqtSlot(str, result='QString')
+    def pickColor(self, initial: str = "") -> str:
+        """Open native color picker dialog for any color.
+
+        Accepts an optional initial color (hex string). If provided and
+        valid, the dialog will start with that color.
+        """
+        try:
+            if initial:
+                init = QColor(initial)
+                if not init.isValid():
+                    init = QColor("#3daee9")
+            else:
+                init = QColor("#3daee9")
+        except Exception:
+            init = QColor("#3daee9")
+
         color = QColorDialog.getColor(
-            QColor("#3daee9"), None, "Select color"
+            init, None, "Select color"
         )
         return color.name() if color.isValid() else ""
     

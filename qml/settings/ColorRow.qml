@@ -81,7 +81,7 @@ RowLayout {
         Controls.ToolTip.text: "Pick color"
         Controls.ToolTip.visible: hovered
         onClicked: {
-            var c = backend.pickColor()
+            var c = backend.pickColor(colorRow.colorValue || "")
             if (c) {
                 colorRow.pickerColorSelected(c)
             }
