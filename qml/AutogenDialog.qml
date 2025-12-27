@@ -229,6 +229,7 @@ Window {
                         var ok = backend.applyAutogenColors(rootDialog.autogenText)
                         if (ok) {
                             root.showPassiveNotification("Autogen colors loaded to settings")
+                            rootDialog.close()
                         } else {
                             root.showPassiveNotification("Error loading autogen colors")
                         }

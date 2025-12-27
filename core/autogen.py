@@ -12,7 +12,6 @@ from typing import Any, Dict, Optional
 
 from integrations.kuntatinte_colors import generate_and_save_kuntatinte_schemes, parse_scheme_file, get_scheme_file_path
 from core.config_manager import config
-from core.color_utils import get_best_contrast
 
 logger = logging.getLogger(__name__)
 
@@ -68,91 +67,6 @@ def _extract_color_from_scheme(scheme_path: Path, section: str, key: str) -> tup
     
     return None, 1.0
 
-
-def _get_better_contrast_color(base_color: str, group_colors: list) -> str:
-    """Get the color from group_colors that has better contrast with base_color.
-    
-    Args:
-        base_color: Base color for contrast calculation
-        group_colors: List of candidate colors
-    
-    Returns:
-        Best contrasting color
-    """
-    if not group_colors:
-        return base_color
-    return get_best_contrast(base_color, group_colors)
-
-
-def get_scheme_color(scheme_path: str, color_section: str, color_key: str) -> Optional[str]:
-    """Extract a color value from a KDE color scheme file.
-    
-    Args:
-        scheme_path: Path to the color scheme file
-        color_section: Section name in the config file (e.g., 'Colors:Window')
-        color_key: Key name within the section (e.g., 'BackgroundNormal')
-    
-    Returns:
-        Hex color string in lowercase format, or None if not found/invalid
-    """
-
-    scheme_config = configparser.ConfigParser()
-    scheme_config.read(scheme_path)
-    try:
-        color_value = scheme_config.get(color_section, color_key)
-        match = re.match(r"#?([0-9A-Fa-f]{6})", color_value)
-        if match:
-            return f"#{match.group(1).lower()}"
-    except (configparser.NoSectionError, configparser.NoOptionError):
-        pass
-    return None
-
-def darker_color(colors: Dict[str, str]) -> Optional[str]:
-    """Select the darkest color from a dictionary of colors.
-    
-    Args:
-        colors: Dictionary mapping color names to hex color strings
-    
-    Returns:
-        Hex color string of the darkest color, or None if colors is empty
-        
-    Note:
-        This is currently a placeholder implementation that returns the first color.
-    """
-    # Placeholder implementation
-    return next(iter(colors.values()), None)
-
-def better_contrast_color(_base_color: str, colors: Dict[str, str]) -> Optional[str]:
-    """Select a color with better contrast against a base color.
-    
-    Args:
-        _base_color: Base color for contrast calculation (currently unused)
-        colors: Dictionary mapping color names to hex color strings
-    
-    Returns:
-        Hex color string with better contrast, or None if colors is empty
-        
-    Note:
-        This is currently a placeholder implementation that returns the first color.
-    """
-    # Placeholder implementation
-    return next(iter(colors.values()), None)
-
-def lighter_color(colors: Dict[str, str]) -> Optional[str]:
-    """Select the lightest color from a dictionary of colors.
-    
-    Args:
-        colors: Dictionary mapping color names to hex color strings
-    
-    Returns:
-        Hex color string of the lightest color, or None if colors is empty
-        
-    Note:
-        This is currently a placeholder implementation that returns the first color.
-    """
-    # Placeholder implementation
-    return next(iter(colors.values()), None)
-
 def get_active_color_scheme():
     try:
         result = subprocess.run(
@@ -167,6 +81,22 @@ def get_active_color_scheme():
             config.read(kdeglobals)
             return config.get("General", "ColorScheme", fallback=None)
     return None
+
+def _load_rules_from_templates(mode: str) -> Dict[str, Any]:
+    """Load autogen rules JSON from user templates directory.
+
+    Looks under `config.templates_dir / 'autogen_rules' / '<mode>.json'.
+    Returns an empty dict if not found or on error.
+    """
+    try:
+        templates_dir = config.templates_dir
+        rules_path = Path(templates_dir) / "autogen_rules" / f"{mode}.json"
+        if rules_path.exists():
+            with open(rules_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        logger.error(f"Failed to load rules from templates: {e}")
+    return {}
 
 def run_autogen(palette_mode: Optional[str] = None, palette: Optional[list[str]] = None, primary_index: int = 0, accent_override: str = "", primary_color: str = "") -> str:
     """Run autogen generation.
@@ -376,23 +306,3 @@ def run_autogen_current_colors(palette_mode: Optional[str] = None, primary_color
     except Exception as e:
         logger.error(f"Error in run_autogen_current_colors: {e}")
         return json.dumps({"status": "error", "message": str(e)})
-
-
-from core.config_manager import config
-
-
-def _load_rules_from_templates(mode: str) -> Dict[str, Any]:
-    """Load autogen rules JSON from user templates directory.
-
-    Looks under `config.templates_dir / 'autogen_rules' / '<mode>.json'.
-    Returns an empty dict if not found or on error.
-    """
-    try:
-        templates_dir = config.templates_dir
-        rules_path = Path(templates_dir) / "autogen_rules" / f"{mode}.json"
-        if rules_path.exists():
-            with open(rules_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-    except Exception as e:
-        logger.error(f"Failed to load rules from templates: {e}")
-    return {}
