@@ -461,7 +461,7 @@ ColumnLayout {
                     border.width: root.selectedSwatchIndex === -2 ? 3 : 1
                     radius: 4
                     
-                    Controls.ToolTip.text: (root.extractedAccent || "#3daee9") + " (ImageMagick)"
+                    Controls.ToolTip.text: (root.extractedAccent) + " (ImageMagick)"
                     Controls.ToolTip.visible: extractedAccentSwatchMouse.containsMouse
                     MouseArea {
                         id: extractedAccentSwatchMouse

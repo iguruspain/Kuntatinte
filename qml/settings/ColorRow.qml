@@ -42,7 +42,7 @@ RowLayout {
         opacity: colorRow.colorOpacity / 100.0
         border.color: Kirigami.Theme.disabledTextColor
         border.width: 1
-        radius: 2
+        radius: 4
         
         Controls.ToolTip.text: colorRow.colorValue + (colorRow.showOpacity ? " (" + colorRow.colorOpacity + "%)" : "")
         Controls.ToolTip.visible: swatchMouse.containsMouse && colorRow.colorValue
@@ -51,6 +51,12 @@ RowLayout {
             id: swatchMouse
             anchors.fill: parent
             hoverEnabled: true
+            onClicked: {
+                var c = backend.pickColor(colorRow.colorValue || "")
+                if (c) {
+                    colorRow.pickerColorSelected(c)
+                }
+            }
         }
     }
     
@@ -73,20 +79,7 @@ RowLayout {
         }
     }
     
-    // Color picker button - fixed size
-    Controls.ToolButton {
-        icon.name: "color-picker"
-        implicitWidth: 28
-        implicitHeight: 28
-        Controls.ToolTip.text: "Pick color"
-        Controls.ToolTip.visible: hovered
-        onClicked: {
-            var c = backend.pickColor(colorRow.colorValue || "")
-            if (c) {
-                colorRow.pickerColorSelected(c)
-            }
-        }
-    }
+    // (picker button removed) swatch click opens picker now
     
     // Palette button - fixed size
     Controls.ToolButton {

@@ -17,9 +17,9 @@
       "variable_key": "PrimaryColor"
     },
     "selectedAccentText": {
-      "extract_method": "better_contrast",
-      "base_color": "TobeDefined",
-      "group_colors": ["TobeDefined", "TobeDefined"]
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "BackgroundNormal"
     },
     "selectedDirFg": {
       "extract_method": "color_scheme",
@@ -32,9 +32,9 @@
       "scheme_key": "DecorationHover"
     },
     "selectedDirText": {
-      "extract_method": "better_contrast",
-      "base_color": "TobeDefined",
-      "group_colors": ["TobeDefined", "TobeDefined"]
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Selection",
+      "scheme_key": "DecorationHover"
     },
     "selectedGitFg": {
       "extract_method": "color_scheme",
@@ -47,9 +47,9 @@
       "scheme_key": "BackgroundAlternate"
     },
     "selectedGitText": {
-      "extract_method": "better_contrast",
-      "base_color": "TobeDefined",
-      "group_colors": ["TobeDefined", "TobeDefined"]
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "ForegroundInactive"
     },
     "selectedOtherFg": {
       "extract_method": "color_scheme",
@@ -62,9 +62,9 @@
       "scheme_key": "DecorationFocus"
     },
     "selectedOtherText": {
-      "extract_method": "better_contrast",
-      "base_color": "TobeDefined",
-      "group_colors": ["TobeDefined", "TobeDefined"]
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "BackgroundNormal"
     }
   },
   "Ulauncher": {
@@ -113,12 +113,14 @@
       "variable_key": "PrimaryColor"
     },
     "ulauncherItemNameSelected": {
-      "extract_method": "darker",
-      "group_colors": ["TobeDefined", "TobeDefined"]
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Selection",
+      "scheme_key": "ForegroundNormal"
     },
     "ulauncherItemTextSelected": {
-      "extract_method": "darker",
-      "group_colors": ["TobeDefined", "TobeDefined"]
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Selection",
+      "scheme_key": "ForegroundNormal"
     },
     "ulauncherShortcutColor": {
       "extract_method": "color_scheme",
@@ -126,16 +128,18 @@
       "scheme_key": "DecorationFocus"
     },
     "ulauncherShortcutColorSel": {
-      "extract_method": "darker",
-      "group_colors": ["TobeDefined", "TobeDefined"]
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Selection",
+      "scheme_key": "ForegroundNormal"
     },
     "ulauncherWhenSelected": {
-      "extract_method": "darker",
-      "group_colors": ["TobeDefined", "TobeDefined"]
+      "extract_method": "color_scheme",
+      "scheme_section": "Colors:Window",
+      "scheme_key": "ForegroundNormal"
     },
     "ulauncherWhenNotSelected": {
-      "extract_method": "darker",
-      "group_colors": ["TobeDefined", "TobeDefined"]
+      "extract_method": "variable",
+      "variable_key": "PrimaryColor"
     }
   }
 }

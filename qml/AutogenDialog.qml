@@ -57,7 +57,7 @@ Window {
             spacing: Kirigami.Units.smallSpacing
 
             Controls.Button {
-                text: "Generate (also colors)"
+                text: "Generate (kuntatinte .colors)"
                 Layout.fillWidth: true
                 onClicked: {
                     if (busyIndicator) busyIndicator.visible = true
@@ -83,7 +83,7 @@ Window {
             }
 
             Controls.Button {
-                text: "Generate (current colors)"
+                text: "Generate (current .colors)"
                 Layout.fillWidth: true
                 onClicked: {
                     if (busyIndicator) busyIndicator.visible = true

@@ -6,6 +6,7 @@ import configparser
 import json
 import logging
 import re
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -35,6 +36,7 @@ def _extract_color_from_scheme(scheme_path: Path, section: str, key: str) -> tup
             value = config.get(section, key)
             logger.info(f"Read from {scheme_path} [{section}] {key} = {value}")
             # Parse RGB/RGBA values like "191,173,160" or "191,173,160,255"
+
             if ',' in value:
                 parts = value.split(',')
                 if len(parts) >= 3:
@@ -48,6 +50,17 @@ def _extract_color_from_scheme(scheme_path: Path, section: str, key: str) -> tup
                     else:
                         opacity = 1.0
                     
+                    logger.info(f"Parsed to hex: {hex_color}, opacity: {opacity}")
+                    return hex_color, opacity
+            else: # Handle hex format like "#bfada0"
+                match = re.match(r"#?([0-9A-Fa-f]{6})([0-9A-Fa-f]{2})?", value)
+                if match:
+                    hex_color = f"#{match.group(1).lower()}"
+                    if match.group(2):
+                        alpha = int(match.group(2), 16)
+                        opacity = alpha / 255.0
+                    else:
+                        opacity = 1.0
                     logger.info(f"Parsed to hex: {hex_color}, opacity: {opacity}")
                     return hex_color, opacity
     except Exception as e:
@@ -140,6 +153,21 @@ def lighter_color(colors: Dict[str, str]) -> Optional[str]:
     # Placeholder implementation
     return next(iter(colors.values()), None)
 
+def get_active_color_scheme():
+    try:
+        result = subprocess.run(
+            ["kreadconfig6", "--file", "kdeglobals", "--group", "General", "--key", "ColorScheme"],
+            capture_output=True, text=True, check=True
+        )
+        return result.stdout.strip() or None
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        kdeglobals = Path("~/.config/kdeglobals").expanduser()
+        if kdeglobals.exists():
+            config = configparser.ConfigParser()
+            config.read(kdeglobals)
+            return config.get("General", "ColorScheme", fallback=None)
+    return None
+
 def run_autogen(palette_mode: Optional[str] = None, palette: Optional[list[str]] = None, primary_index: int = 0, accent_override: str = "", primary_color: str = "") -> str:
     """Run autogen generation.
 
@@ -193,6 +221,7 @@ def run_autogen(palette_mode: Optional[str] = None, palette: Optional[list[str]]
         # Get scheme path
         scheme_name = "KuntatinteLight" if palette_mode == "light" else "KuntatinteDark"
         scheme_path = Path.home() / ".local/share/color-schemes" / f"{scheme_name}.colors"
+    
         if not scheme_path.exists():
             return json.dumps({"status": "error", "message": f"Scheme file not found: {scheme_path}"})
         
@@ -272,8 +301,15 @@ def run_autogen_current_colors(palette_mode: Optional[str] = None, primary_color
         
         # Use existing schemes - no regeneration
         # Get scheme path
-        scheme_name = "KuntatinteLight" if palette_mode == "light" else "KuntatinteDark"
-        scheme_path = get_scheme_file_path(scheme_name)
+        #scheme_name = "KuntatinteLight" if palette_mode == "light" else "KuntatinteDark"
+        #scheme_path = get_scheme_file_path(scheme_name)
+        # Get current color scheme path from system
+        scheme_name = get_active_color_scheme()
+        print(f"Active color scheme: {scheme_name}")
+        if not scheme_name:
+            scheme_name = "KuntatinteLight" if palette_mode == "light" else "KuntatinteDark"
+        scheme_path = Path.home() / ".local/share/color-schemes" / f"{scheme_name}.colors"
+
         if not scheme_path or not scheme_path.exists():
             return json.dumps({"status": "error", "message": f"Color scheme {scheme_name} not found"})
         
