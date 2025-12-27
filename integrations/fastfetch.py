@@ -334,26 +334,3 @@ def generate_tinted_preview(source_path: str, accent_color: str) -> Optional[str
     except Exception as e:
         logger.error(f"Error generating preview: {e}")
         return None
-
-
-# =============================================================================
-# CLI Interface
-# =============================================================================
-
-if __name__ == '__main__':
-    import sys
-    
-    if len(sys.argv) < 2:
-        print("Usage: python fastfetch.py <accent_hex_color>")
-        print("       python fastfetch.py --restore")
-        print("Example: python fastfetch.py '#569cc1'")
-        sys.exit(1)
-    
-    if sys.argv[1] == '--restore':
-        success, message = restore_fastfetch_backup()
-    else:
-        accent = sys.argv[1]
-        success, message = apply_fastfetch_accent(accent)
-    
-    print(message)
-    sys.exit(0 if success else 1)
